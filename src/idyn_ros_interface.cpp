@@ -8,11 +8,12 @@ idyn_ros_interface::idyn_ros_interface():
     _q_subs(),
     _br(),
     _q(coman_idyn.coman_iDyn3.getNrOfDOFs(), 0.0),
-    reference_frame_CoM("Waist")
+    reference_frame_CoM("l_sole")
 {
     _q_subs = _n.subscribe("/joint_states", 100, &idyn_ros_interface::updateIdynCallBack, this);
 
     coman_idyn.updateiDyn3Model(_q, _q, _q);
+    coman_idyn.setWorldPose();
 }
 
 idyn_ros_interface::~idyn_ros_interface()
@@ -47,6 +48,7 @@ void idyn_ros_interface::publishCoMtf()
 {
     yarp::sig::Vector CoM( coman_idyn.coman_iDyn3.getCOM("",
                            coman_idyn.coman_iDyn3.getLinkIndex(reference_frame_CoM)) );
+
     tf::Transform CoM_transform;
     CoM_transform.setIdentity();
     CoM_transform.setOrigin(tf::Vector3(CoM[0], CoM[1], CoM[2]));
