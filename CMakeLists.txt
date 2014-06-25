@@ -21,6 +21,11 @@ find_package(ICUB REQUIRED)
 find_package(Eigen REQUIRED)
 find_package(TinyXML REQUIRED)
 find_package(drc_shared REQUIRED)
+find_package(kdl_codyco REQUIRED)
+find_package(iDynTree REQUIRED)
+
+set(ROS_HYDRO_LIB_FOLDER /opt/ros/hydro/lib/)
+link_directories(${ROS_HYDRO_LIB_FOLDER})
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -115,6 +120,8 @@ add_executable(robot_state_publisher_ext_node src/main.cpp)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(idyn_ros_interface ${drc_shared_LIBRARIES} ${YARP_LIBRARIES} icubmod ${ICUB_LIBRARIES} ${catkin_LIBRARIES}
+${iDynTree_LIBRARIES}
+${kdl_codyco_LIBRARIES}
 ${TinyXML_LIBRARIES})
 target_link_libraries(robot_state_publisher_ext_node idyn_ros_interface ${drc_shared_LIBRARIES} ${YARP_LIBRARIES} icubmod ${ICUB_LIBRARIES} ${catkin_LIBRARIES})
 
