@@ -78,31 +78,40 @@ void idyn_ros_interface::publishBaseFootPrint()
 
     tf::StampedTransform l_foot, r_foot;
     l_foot.setIdentity(); r_foot.setIdentity();
-    try
+
+    ros::Time now = ros::Time::now();
+    bool ak1 = _lr.waitForTransform(reference_frame_base_foot_print, "/l_sole",
+                                  now, ros::Duration(1.0));
+    ak1 = ak1 && _lr.waitForTransform(reference_frame_base_foot_print, "/r_sole",
+                                  now, ros::Duration(1.0));
+    if(ak1)
     {
-        _lr.lookupTransform(reference_frame_base_foot_print, "/l_sole",
-        ros::Time(0), l_foot);
-        _lr.lookupTransform(reference_frame_base_foot_print, "/r_sole",
-        ros::Time(0), r_foot);
+        try
+        {
+            _lr.lookupTransform(reference_frame_base_foot_print, "/l_sole",
+            ros::Time(0), l_foot);
+            _lr.lookupTransform(reference_frame_base_foot_print, "/r_sole",
+            ros::Time(0), r_foot);
+        }
+        catch (tf::TransformException ex)
+        {
+            ROS_ERROR("%s",ex.what());
+            ros::Duration(1.0).sleep();
+        }
+
+        base_footprint.setOrigin(tf::Vector3(0.0, 0.0, std::min(l_foot.getOrigin().z(),
+                                                                r_foot.getOrigin().z())));
+
+        /* Here we will use the IMU when it will work instead of left_foot! */
+        tf::StampedTransform base_link;
+        base_link.setIdentity();
+        tf::Quaternion base_link_rot;
+        base_link_rot.setRPY(0.0, 0.0, tf::getYaw(l_foot.inverse().getRotation()));
+        base_link.setRotation(base_link_rot);
+        base_footprint.setRotation(l_foot.getRotation()*base_link.getRotation());
+
+        _br.sendTransform(tf::StampedTransform(base_footprint, ros::Time::now(),
+                                               reference_frame_base_foot_print,
+                                               "base_footprint"));
     }
-    catch (tf::TransformException ex)
-    {
-        ROS_ERROR("%s",ex.what());
-        ros::Duration(1.0).sleep();
-    }
-
-    base_footprint.setOrigin(tf::Vector3(0.0, 0.0, std::min(l_foot.getOrigin().z(),
-                                                            r_foot.getOrigin().z())));
-
-    /* Here we will use the IMU when it will work instead of left_foot! */
-    tf::StampedTransform base_link;
-    base_link.setIdentity();
-    tf::Quaternion base_link_rot;
-    base_link_rot.setRPY(0.0, 0.0, tf::getYaw(l_foot.inverse().getRotation()));
-    base_link.setRotation(base_link_rot);
-    base_footprint.setRotation(l_foot.getRotation()*base_link.getRotation());
-
-    _br.sendTransform(tf::StampedTransform(base_footprint, ros::Time::now(),
-                                           reference_frame_base_foot_print,
-                                           "base_footprint"));
 }
