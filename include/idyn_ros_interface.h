@@ -6,6 +6,7 @@
 #include <yarp/sig/all.h>
 #include <sensor_msgs/JointState.h>
 #include <tf/transform_broadcaster.h>
+#include <tf/transform_listener.h>
 
 class idyn_ros_interface
 {
@@ -16,14 +17,17 @@ public:
     ~idyn_ros_interface();
 
     void publishCoMtf();
+    void publishBaseFootPrint();
 private:
     ros::NodeHandle _n;
     ros::Subscriber _q_subs;
     tf::TransformBroadcaster _br;
+    tf::TransformListener _lr;
 
     yarp::sig::Vector _q;
 
     std::string reference_frame_CoM;
+    std::string reference_frame_base_foot_print;
 
     void updateIdynCallBack(const sensor_msgs::JointState &msg);
     void fillKinematicChainConfig(const kinematic_chain& kc,
