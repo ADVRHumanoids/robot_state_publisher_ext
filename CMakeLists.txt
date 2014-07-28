@@ -24,8 +24,8 @@ find_package(drc_shared REQUIRED)
 find_package(kdl_codyco REQUIRED)
 find_package(iDynTree REQUIRED)
 
-set(ROS_HYDRO_LIB_FOLDER /opt/ros/hydro/lib/)
-link_directories(${ROS_HYDRO_LIB_FOLDER})
+set(ROS_LIB_FOLDER $ENV{ROS_LIB_FOLDER} CACHE STRING "ros lib folder")
+link_directories(${ROS_LIB_FOLDER})
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
