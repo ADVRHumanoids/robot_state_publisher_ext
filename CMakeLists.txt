@@ -18,7 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(Boost REQUIRED COMPONENTS system)
 find_package(YARP REQUIRED)
 find_package(ICUB REQUIRED)
-find_package(Eigen REQUIRED)
+find_package(Eigen3 REQUIRED)
 find_package(TinyXML REQUIRED)
 find_package(drc_shared REQUIRED)
 find_package(kdl_codyco REQUIRED)
