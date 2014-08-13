@@ -109,7 +109,8 @@ catkin_package(
 include_directories(include ${drc_shared_INCLUDE_DIRS} ${YARP_INCLUDE_DIRS} 
 #${ICUB_INCLUDE_DIRS} 
 ${Eigen_INCLUDE_DIRS}
-${TinyXML_INCLUDE_DIRS})
+${TinyXML_INCLUDE_DIRS}
+${iDynTree_INCLUDE_DIRS})
 
 ## Declare a cpp library
 add_library(idyn_ros_interface src/idyn_ros_interface.cpp)
@@ -122,13 +123,16 @@ add_executable(robot_state_publisher_ext_node src/main.cpp)
 #add_dependencies(yarp_ros_wrench_imu_publisher_node yarp_ros_wrench_imu_publisher_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(idyn_ros_interface ${drc_shared_LIBRARIES} ${YARP_LIBRARIES} icubmod 
+target_link_libraries(idyn_ros_interface ${drc_shared_LIBRARIES} ${YARP_LIBRARIES} 
+#icubmod 
 #${ICUB_LIBRARIES} 
 ${catkin_LIBRARIES}
-${iDynTree_LIBRARIES}
 ${kdl_codyco_LIBRARIES}
-${TinyXML_LIBRARIES})
-target_link_libraries(robot_state_publisher_ext_node idyn_ros_interface ${drc_shared_LIBRARIES} ${YARP_LIBRARIES} icubmod 
+${TinyXML_LIBRARIES}
+${iDynTree_LIBRARIES})
+
+target_link_libraries(robot_state_publisher_ext_node idyn_ros_interface ${drc_shared_LIBRARIES} ${YARP_LIBRARIES} 
+#icubmod 
 #${ICUB_LIBRARIES} 
 ${catkin_LIBRARIES})
 
