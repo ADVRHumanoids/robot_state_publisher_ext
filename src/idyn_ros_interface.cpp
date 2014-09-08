@@ -9,7 +9,7 @@ idyn_ros_interface::idyn_ros_interface():
     _br(),
     _lr(),
     _q(coman_idyn.coman_iDyn3.getNrOfDOFs(), 0.0),
-    reference_frame_CoM("l_sole"),
+    reference_frame_CoM("Waist"),
     reference_frame_base_foot_print("base_link")
 {
     _q_subs = _n.subscribe("/joint_states", 100, &idyn_ros_interface::updateIdynCallBack, this);
