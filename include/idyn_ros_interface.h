@@ -11,13 +11,14 @@
 class idyn_ros_interface
 {
 public:
-    iDynUtils coman_idyn;
+    iDynUtils idynutils;
 
     idyn_ros_interface();
     ~idyn_ros_interface();
 
     void publishCoMtf();
-    void publishBaseFootPrint();
+    //void publishBaseFootPrint();
+    void publishWorld();
 private:
     ros::NodeHandle _n;
     ros::Subscriber _q_subs;

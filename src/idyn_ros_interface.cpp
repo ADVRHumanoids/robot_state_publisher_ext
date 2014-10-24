@@ -1,21 +1,21 @@
 #include <idyn_ros_interface.h>
+#include <kdl/frames.hpp>
 
 using namespace iCub::iDynTree;
 
 idyn_ros_interface::idyn_ros_interface():
-    coman_idyn(),
+    idynutils(),
     _n(),
     _q_subs(),
     _br(),
     _lr(),
-    _q(coman_idyn.coman_iDyn3.getNrOfDOFs(), 0.0),
-    reference_frame_CoM("Waist"),
-    reference_frame_base_foot_print("base_link")
+    _q(idynutils.coman_iDyn3.getNrOfDOFs(), 0.0),
+    reference_frame_CoM("world"),
+    reference_frame_base_foot_print("CoM")
 {
     _q_subs = _n.subscribe("/joint_states", 100, &idyn_ros_interface::updateIdynCallBack, this);
 
-    coman_idyn.updateiDyn3Model(_q, _q, _q);
-    coman_idyn.setWorldPose();
+    idynutils.updateiDyn3Model(_q, _q, _q, true);
 }
 
 idyn_ros_interface::~idyn_ros_interface()
@@ -29,14 +29,14 @@ void idyn_ros_interface::updateIdynCallBack(const sensor_msgs::JointState &msg)
     for(unsigned int i = 0; i < msg.name.size(); ++i)
         joint_name_value_map[msg.name[i]] = msg.position[i];
 
-    fillKinematicChainConfig(coman_idyn.left_arm, joint_name_value_map);
-    fillKinematicChainConfig(coman_idyn.left_leg, joint_name_value_map);
-    fillKinematicChainConfig(coman_idyn.right_arm, joint_name_value_map);
-    fillKinematicChainConfig(coman_idyn.right_leg, joint_name_value_map);
-    fillKinematicChainConfig(coman_idyn.torso, joint_name_value_map);
+    fillKinematicChainConfig(idynutils.left_arm, joint_name_value_map);
+    fillKinematicChainConfig(idynutils.left_leg, joint_name_value_map);
+    fillKinematicChainConfig(idynutils.right_arm, joint_name_value_map);
+    fillKinematicChainConfig(idynutils.right_leg, joint_name_value_map);
+    fillKinematicChainConfig(idynutils.torso, joint_name_value_map);
 
     yarp::sig::Vector foo(_q.size(), 0.0);
-    coman_idyn.updateiDyn3Model(_q, foo, foo);
+    idynutils.updateiDyn3Model(_q, foo, foo, true);
 }
 
 void idyn_ros_interface::fillKinematicChainConfig(const kinematic_chain &kc,
@@ -48,8 +48,8 @@ void idyn_ros_interface::fillKinematicChainConfig(const kinematic_chain &kc,
 
 void idyn_ros_interface::publishCoMtf()
 {
-    yarp::sig::Vector CoM( coman_idyn.coman_iDyn3.getCOM("",
-                           coman_idyn.coman_iDyn3.getLinkIndex(reference_frame_CoM)) );
+    yarp::sig::Vector CoM( idynutils.coman_iDyn3.getCOM());
+                           //idynutils.coman_iDyn3.getLinkIndex(reference_frame_CoM)) );
 
     tf::Transform CoM_transform;
     CoM_transform.setIdentity();
@@ -60,58 +60,17 @@ void idyn_ros_interface::publishCoMtf()
 
 }
 
-void idyn_ros_interface::publishBaseFootPrint()
+void idyn_ros_interface::publishWorld()
 {
-    /*
-     * The base_footprint is the representation of the robot position on the floor.
-     * The floor is usually the level where the supporting leg rests,
-     * i.e. z = min(l_sole_z, r_sole_z) where l_sole_z and r_sole_z are the left and
-     * right sole height respecitvely. The translation component of the frame should be
-     * the barycenter of the feet projections on the floor. With respect to the odom
-     * frame, the roll and pitch angles should be zero and the yaw angle should
-     * correspond to the base_link yaw angle.
-     */
+    KDL::Frame world_T_base_link =  idynutils.coman_iDyn3.getWorldBasePoseKDL();
 
-    tf::Transform base_footprint;
-    base_footprint.setIdentity();
+    double qx, qy, qz, qw;
+    world_T_base_link.M.GetQuaternion(qx, qy, qz, qw);
 
+    tf::Transform world_T_base_link_tf;
+    world_T_base_link_tf.setOrigin(tf::Vector3(world_T_base_link.p.x(), world_T_base_link.p.y(), world_T_base_link.p.z()));
+    world_T_base_link_tf.setRotation(tf::Quaternion(qx, qy, qz, qw));
 
-    tf::StampedTransform l_foot, r_foot;
-    l_foot.setIdentity(); r_foot.setIdentity();
-
-    ros::Time now = ros::Time::now();
-    bool ak1 = _lr.waitForTransform(reference_frame_base_foot_print, "/l_sole",
-                                  now, ros::Duration(1.0));
-    ak1 = ak1 && _lr.waitForTransform(reference_frame_base_foot_print, "/r_sole",
-                                  now, ros::Duration(1.0));
-    if(ak1)
-    {
-        try
-        {
-            _lr.lookupTransform(reference_frame_base_foot_print, "/l_sole",
-            ros::Time(0), l_foot);
-            _lr.lookupTransform(reference_frame_base_foot_print, "/r_sole",
-            ros::Time(0), r_foot);
-        }
-        catch (tf::TransformException ex)
-        {
-            ROS_ERROR("%s",ex.what());
-            ros::Duration(1.0).sleep();
-        }
-
-        base_footprint.setOrigin(tf::Vector3(0.0, 0.0, std::min(l_foot.getOrigin().z(),
-                                                                r_foot.getOrigin().z())));
-
-        /* Here we will use the IMU when it will work instead of left_foot! */
-        tf::StampedTransform base_link;
-        base_link.setIdentity();
-        tf::Quaternion base_link_rot;
-        base_link_rot.setRPY(0.0, 0.0, tf::getYaw(l_foot.inverse().getRotation()));
-        base_link.setRotation(base_link_rot);
-        base_footprint.setRotation(l_foot.getRotation()*base_link.getRotation());
-
-        _br.sendTransform(tf::StampedTransform(base_footprint, ros::Time::now(),
-                                               reference_frame_base_foot_print,
-                                               "base_footprint"));
-    }
+    _br.sendTransform(tf::StampedTransform(world_T_base_link_tf, ros::Time::now(),
+                                           "world", "base_link"));
 }
