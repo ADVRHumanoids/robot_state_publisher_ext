@@ -15,8 +15,10 @@ int main(int argc, char **argv)
     ros::Rate loop_rate(hz);
     while(ros::ok())
     {
-        coman.publishWorld();
-        coman.publishCoMtf();
+        ros::Time t = ros::Time::now();
+
+        coman.publishWorld(t);
+        coman.publishCoMtf(t);
         ros::spinOnce();
         loop_rate.sleep();
     }

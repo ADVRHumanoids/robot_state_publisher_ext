@@ -46,7 +46,7 @@ void idyn_ros_interface::fillKinematicChainConfig(const kinematic_chain &kc,
         _q[kc.joint_numbers[i]] = joint_names_values[kc.joint_names[i]];
 }
 
-void idyn_ros_interface::publishCoMtf()
+void idyn_ros_interface::publishCoMtf(const ros::Time &t)
 {
     yarp::sig::Vector CoM( idynutils.coman_iDyn3.getCOM());
                            //idynutils.coman_iDyn3.getLinkIndex(reference_frame_CoM)) );
@@ -55,12 +55,12 @@ void idyn_ros_interface::publishCoMtf()
     CoM_transform.setIdentity();
     CoM_transform.setOrigin(tf::Vector3(CoM[0], CoM[1], CoM[2]));
 
-    _br.sendTransform(tf::StampedTransform(CoM_transform, ros::Time::now(),
+    _br.sendTransform(tf::StampedTransform(CoM_transform, t,
                                            reference_frame_CoM, "CoM"));
 
 }
 
-void idyn_ros_interface::publishWorld()
+void idyn_ros_interface::publishWorld(const ros::Time &t)
 {
     KDL::Frame world_T_base_link =  idynutils.coman_iDyn3.getWorldBasePoseKDL();
 
@@ -71,6 +71,6 @@ void idyn_ros_interface::publishWorld()
     world_T_base_link_tf.setOrigin(tf::Vector3(world_T_base_link.p.x(), world_T_base_link.p.y(), world_T_base_link.p.z()));
     world_T_base_link_tf.setRotation(tf::Quaternion(qx, qy, qz, qw));
 
-    _br.sendTransform(tf::StampedTransform(world_T_base_link_tf, ros::Time::now(),
+    _br.sendTransform(tf::StampedTransform(world_T_base_link_tf, t,
                                            "world", "base_link"));
 }

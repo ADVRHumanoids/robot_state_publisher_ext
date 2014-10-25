@@ -16,9 +16,9 @@ public:
     idyn_ros_interface();
     ~idyn_ros_interface();
 
-    void publishCoMtf();
+    void publishCoMtf(const ros::Time& t);
     //void publishBaseFootPrint();
-    void publishWorld();
+    void publishWorld(const ros::Time& t);
 private:
     ros::NodeHandle _n;
     ros::Subscriber _q_subs;
