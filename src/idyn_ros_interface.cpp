@@ -9,7 +9,7 @@ idyn_ros_interface::idyn_ros_interface():
     _q_subs(),
     _br(),
     _lr(),
-    _q(idynutils.coman_iDyn3.getNrOfDOFs(), 0.0),
+    _q(idynutils.iDyn3_model.getNrOfDOFs(), 0.0),
     reference_frame_CoM("world"),
     reference_frame_base_foot_print("CoM")
 {
@@ -48,8 +48,8 @@ void idyn_ros_interface::fillKinematicChainConfig(const kinematic_chain &kc,
 
 void idyn_ros_interface::publishCoMtf()
 {
-    yarp::sig::Vector CoM( idynutils.coman_iDyn3.getCOM());
-                           //idynutils.coman_iDyn3.getLinkIndex(reference_frame_CoM)) );
+    yarp::sig::Vector CoM( idynutils.iDyn3_model.getCOM());
+                           //idynutils.iDyn3_model.getLinkIndex(reference_frame_CoM)) );
 
     tf::Transform CoM_transform;
     CoM_transform.setIdentity();
@@ -62,7 +62,7 @@ void idyn_ros_interface::publishCoMtf()
 
 void idyn_ros_interface::publishWorld()
 {
-    KDL::Frame world_T_base_link =  idynutils.coman_iDyn3.getWorldBasePoseKDL();
+    KDL::Frame world_T_base_link =  idynutils.iDyn3_model.getWorldBasePoseKDL();
 
     double qx, qy, qz, qw;
     world_T_base_link.M.GetQuaternion(qx, qy, qz, qw);
