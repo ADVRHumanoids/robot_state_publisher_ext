@@ -2,7 +2,7 @@
 #define _IDYN_ROS_INTERFACE_H_
 
 #include <ros/ros.h>
-#include <drc_shared/idynutils.h>
+#include <idynutils/idynutils.h>
 #include <yarp/sig/all.h>
 #include <sensor_msgs/JointState.h>
 #include <tf/transform_broadcaster.h>
