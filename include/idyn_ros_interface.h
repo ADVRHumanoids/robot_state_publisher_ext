@@ -7,11 +7,14 @@
 #include <sensor_msgs/JointState.h>
 #include <tf/transform_broadcaster.h>
 #include <tf/transform_listener.h>
+#include <idynutils/convex_hull.h>
+#include <visualization_msgs/Marker.h>
 
 class idyn_ros_interface
 {
 public:
-    iDynUtils idynutils;
+    iDynUtils robot;
+    idynutils::convex_hull convex_hull;
 
     idyn_ros_interface();
     ~idyn_ros_interface();
@@ -19,11 +22,13 @@ public:
     void publishCoMtf();
     //void publishBaseFootPrint();
     void publishWorld();
+    void publishConvexHull();
 private:
     ros::NodeHandle _n;
     ros::Subscriber _q_subs;
     tf::TransformBroadcaster _br;
     tf::TransformListener _lr;
+
 
     yarp::sig::Vector _q;
 

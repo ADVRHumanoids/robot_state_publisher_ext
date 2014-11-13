@@ -16,7 +16,11 @@ int main(int argc, char **argv)
     while(ros::ok())
     {
         coman.publishWorld();
+
         coman.publishCoMtf();
+
+        coman.publishConvexHull();
+
         ros::spinOnce();
         loop_rate.sleep();
     }
