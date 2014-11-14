@@ -1,5 +1,5 @@
 #include <idyn_ros_interface.h>
-#include <kdl/frames.hpp>
+
 
 using namespace iCub::iDynTree;
 
@@ -14,6 +14,7 @@ idyn_ros_interface::idyn_ros_interface():
     reference_frame_base_foot_print("CoM")
 {
     _q_subs = _n.subscribe("/joint_states", 100, &idyn_ros_interface::updateIdynCallBack, this);
+    _vis_pub = _n.advertise<visualization_msgs::Marker>( "visualization_marker", 0 );
 
     robot.updateiDyn3Model(_q, _q, _q, true);
 }
@@ -81,6 +82,7 @@ void idyn_ros_interface::publishConvexHull()
     std::vector<KDL::Vector> ch;
     idynutils::convex_hull::getSupportPolygonPoints(robot,points);
     if(convex_hull.getConvexHull(points,ch)) {
+        yarp::sig::Vector CoM( robot.iDyn3_model.getCOM());
         visualization_msgs::Marker marker;
 
         marker.header.frame_id = "CoM";
@@ -91,20 +93,25 @@ void idyn_ros_interface::publishConvexHull()
         marker.action = visualization_msgs::Marker::ADD;
 
         geometry_msgs::Point p;
-        for(std::list<KDL::Vector>::iterator i = points.begin(); i != points.end(); ++i)
+        for(std::vector<KDL::Vector>::iterator i =ch.begin(); i != ch.end(); ++i)
         {
             p.x = i->x();
             p.y = i->y();
-            p.z = i->z();
+            p.z = i->z()-CoM[2];
             marker.points.push_back(p);
         }
-        p.x = points.begin()->x();
-        p.y = points.begin()->y();
-        p.z = points.begin()->z();
+        p.x = ch.begin()->x();
+        p.y = ch.begin()->y();
+        p.z = ch.begin()->z()-CoM[2];
         marker.points.push_back(p);
 
-        marker.scale.x = 1;
+        marker.color.a = 1.0;
+        marker.color.r = 0.0;
+        marker.color.g = 1.0;
+        marker.color.b = 0.0;
 
-        //needs publisher
+        marker.scale.x = 0.01;
+
+        _vis_pub.publish(marker);
     }
 }

@@ -9,6 +9,7 @@
 #include <tf/transform_listener.h>
 #include <idynutils/convex_hull.h>
 #include <visualization_msgs/Marker.h>
+#include <kdl/frames.hpp>
 
 class idyn_ros_interface
 {
@@ -28,6 +29,7 @@ private:
     ros::Subscriber _q_subs;
     tf::TransformBroadcaster _br;
     tf::TransformListener _lr;
+    ros::Publisher _vis_pub;
 
 
     yarp::sig::Vector _q;
@@ -38,6 +40,8 @@ private:
     void updateIdynCallBack(const sensor_msgs::JointState &msg);
     void fillKinematicChainConfig(const kinematic_chain& kc,
                                   std::map<std::string, double>& joint_names_values);
+
+
 };
 
 #endif
