@@ -10,8 +10,7 @@ idyn_ros_interface::idyn_ros_interface():
     _br(),
     _lr(),
     _q(robot.iDyn3_model.getNrOfDOFs(), 0.0),
-    reference_frame_CoM("world"),
-    reference_frame_base_foot_print("CoM")
+    reference_frame_CoM("world")
 {
     _q_subs = _n.subscribe("/joint_states", 100, &idyn_ros_interface::updateIdynCallBack, this);
     _vis_pub = _n.advertise<visualization_msgs::Marker>( "visualization_marker", 0 );
@@ -59,6 +58,32 @@ void idyn_ros_interface::publishCoMtf()
     _br.sendTransform(tf::StampedTransform(CoM_transform, ros::Time::now(),
                                            reference_frame_CoM, "CoM"));
 
+    visualization_msgs::Marker com_projected_marker;
+
+    com_projected_marker.header.frame_id = reference_frame_CoM;
+    com_projected_marker.header.stamp = ros::Time::now();
+    com_projected_marker.ns = "rspe/com_projected";
+    com_projected_marker.id = 1;
+    com_projected_marker.type = visualization_msgs::Marker::SPHERE;
+    com_projected_marker.action = visualization_msgs::Marker::ADD;
+
+    com_projected_marker.pose.orientation.x = 0.0;
+    com_projected_marker.pose.orientation.y = 0.0;
+    com_projected_marker.pose.orientation.z = 0.0;
+    com_projected_marker.pose.orientation.w = 1.0;
+    com_projected_marker.pose.position.x = CoM[0];
+    com_projected_marker.pose.position.y = CoM[1];
+    com_projected_marker.pose.position.z = 0.0;
+
+    com_projected_marker.color.a = 1.0;
+    com_projected_marker.color.r = 1.0;
+    com_projected_marker.color.g = 0.0;
+    com_projected_marker.color.b = 1.0;
+
+    com_projected_marker.scale.x = 0.015;
+    com_projected_marker.scale.y = 0.015;
+    com_projected_marker.scale.z = 0.015;
+    _vis_pub.publish(com_projected_marker);
 }
 
 void idyn_ros_interface::publishWorld()
@@ -83,14 +108,14 @@ void idyn_ros_interface::publishConvexHull()
     idynutils::convex_hull::getSupportPolygonPoints(robot,points);
     if(convex_hull.getConvexHull(points,ch)) {
         yarp::sig::Vector CoM( robot.iDyn3_model.getCOM());
-        visualization_msgs::Marker marker;
+        visualization_msgs::Marker ch_marker;
 
-        marker.header.frame_id = "CoM";
-        marker.header.stamp = ros::Time::now();
-        marker.ns = "robot_state_publisher_ext/convex_hull";
-        marker.id = 0;
-        marker.type = visualization_msgs::Marker::LINE_STRIP;
-        marker.action = visualization_msgs::Marker::ADD;
+        ch_marker.header.frame_id = "CoM";
+        ch_marker.header.stamp = ros::Time::now();
+        ch_marker.ns = "rspe/convex_hull";
+        ch_marker.id = 0;
+        ch_marker.type = visualization_msgs::Marker::LINE_STRIP;
+        ch_marker.action = visualization_msgs::Marker::ADD;
 
         geometry_msgs::Point p;
         for(std::vector<KDL::Vector>::iterator i =ch.begin(); i != ch.end(); ++i)
@@ -98,20 +123,20 @@ void idyn_ros_interface::publishConvexHull()
             p.x = i->x();
             p.y = i->y();
             p.z = i->z()-CoM[2];
-            marker.points.push_back(p);
+            ch_marker.points.push_back(p);
         }
         p.x = ch.begin()->x();
         p.y = ch.begin()->y();
         p.z = ch.begin()->z()-CoM[2];
-        marker.points.push_back(p);
+        ch_marker.points.push_back(p);
 
-        marker.color.a = 1.0;
-        marker.color.r = 0.0;
-        marker.color.g = 1.0;
-        marker.color.b = 0.0;
+        ch_marker.color.a = 1.0;
+        ch_marker.color.r = 0.0;
+        ch_marker.color.g = 1.0;
+        ch_marker.color.b = 0.0;
 
-        marker.scale.x = 0.01;
+        ch_marker.scale.x = 0.01;
 
-        _vis_pub.publish(marker);
+        _vis_pub.publish(ch_marker);
     }
 }

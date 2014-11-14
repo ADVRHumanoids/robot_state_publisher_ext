@@ -35,7 +35,6 @@ private:
     yarp::sig::Vector _q;
 
     std::string reference_frame_CoM;
-    std::string reference_frame_base_foot_print;
 
     void updateIdynCallBack(const sensor_msgs::JointState &msg);
     void fillKinematicChainConfig(const kinematic_chain& kc,
