@@ -13,7 +13,7 @@ idyn_ros_interface::idyn_ros_interface():
     reference_frame_CoM("world")
 {
     _q_subs = _n.subscribe("/joint_states", 100, &idyn_ros_interface::updateIdynCallBack, this);
-    _vis_pub = _n.advertise<visualization_msgs::Marker>( "visualization_marker", 0 );
+    _vis_pub = _n.advertise<visualization_msgs::Marker>( "robot_state_publisher_ext_viz", 0 );
 
     robot.updateiDyn3Model(_q, _q, _q, true);
 }
@@ -62,7 +62,7 @@ void idyn_ros_interface::publishCoMtf(const ros::Time &t)
 
     com_projected_marker.header.frame_id = reference_frame_CoM;
     com_projected_marker.header.stamp = t;
-    com_projected_marker.ns = "rspe/com_projected";
+    com_projected_marker.ns = "com_projected";
     com_projected_marker.id = 1;
     com_projected_marker.type = visualization_msgs::Marker::SPHERE;
     com_projected_marker.action = visualization_msgs::Marker::ADD;
@@ -112,7 +112,7 @@ void idyn_ros_interface::publishConvexHull(const ros::Time& t)
 
         ch_marker.header.frame_id = "CoM";
         ch_marker.header.stamp = t;
-        ch_marker.ns = "rspe/convex_hull";
+        ch_marker.ns = "convex_hull";
         ch_marker.id = 0;
         ch_marker.type = visualization_msgs::Marker::LINE_STRIP;
         ch_marker.action = visualization_msgs::Marker::ADD;
