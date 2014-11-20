@@ -6,7 +6,7 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "robot_state_publisher_ext");
     ros::NodeHandle n;
 
-    idyn_ros_interface coman;
+    idyn_ros_interface robot;
 
     ROS_INFO("Starting Robot State Publisher Extended Node");
 
@@ -17,9 +17,9 @@ int main(int argc, char **argv)
     {
 		ros::Time t = ros::Time::now();
 
-        coman.publishWorld(t);
-        coman.publishCoMtf(t);
-        coman.publishConvexHull(t);
+        robot.publishWorld(t);
+        robot.publishCoMtf(t);
+        robot.publishConvexHull(t);
 
         ros::spinOnce();
         loop_rate.sleep();
