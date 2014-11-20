@@ -15,10 +15,12 @@ int main(int argc, char **argv)
     ros::Rate loop_rate(hz);
     while(ros::ok())
     {
-        ros::Time t = ros::Time::now();
+		ros::Time t = ros::Time::now();
 
         coman.publishWorld(t);
         coman.publishCoMtf(t);
+		coman.publishConvexHull();
+
         ros::spinOnce();
         loop_rate.sleep();
     }
