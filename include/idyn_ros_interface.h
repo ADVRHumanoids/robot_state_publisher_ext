@@ -22,7 +22,7 @@ public:
 
     void publishCoMtf(const ros::Time& t);
     void publishWorld(const ros::Time& t);
-    void publishConvexHull();
+    void publishConvexHull(const ros::Time& t);
 private:
     ros::NodeHandle _n;
     ros::Subscriber _q_subs;

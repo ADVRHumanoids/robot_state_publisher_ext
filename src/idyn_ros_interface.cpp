@@ -61,7 +61,7 @@ void idyn_ros_interface::publishCoMtf(const ros::Time &t)
     visualization_msgs::Marker com_projected_marker;
 
     com_projected_marker.header.frame_id = reference_frame_CoM;
-    com_projected_marker.header.stamp = ros::Time::now();
+    com_projected_marker.header.stamp = t;
     com_projected_marker.ns = "rspe/com_projected";
     com_projected_marker.id = 1;
     com_projected_marker.type = visualization_msgs::Marker::SPHERE;
@@ -101,7 +101,7 @@ void idyn_ros_interface::publishWorld(const ros::Time &t)
                                            "world", "base_link"));
 }
 
-void idyn_ros_interface::publishConvexHull()
+void idyn_ros_interface::publishConvexHull(const ros::Time& t)
 {
     std::list<KDL::Vector> points;
     std::vector<KDL::Vector> ch;
@@ -111,7 +111,7 @@ void idyn_ros_interface::publishConvexHull()
         visualization_msgs::Marker ch_marker;
 
         ch_marker.header.frame_id = "CoM";
-        ch_marker.header.stamp = ros::Time::now();
+        ch_marker.header.stamp = t;
         ch_marker.ns = "rspe/convex_hull";
         ch_marker.id = 0;
         ch_marker.type = visualization_msgs::Marker::LINE_STRIP;

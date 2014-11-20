@@ -19,7 +19,7 @@ int main(int argc, char **argv)
 
         coman.publishWorld(t);
         coman.publishCoMtf(t);
-		coman.publishConvexHull();
+        coman.publishConvexHull(t);
 
         ros::spinOnce();
         loop_rate.sleep();
