@@ -3,8 +3,10 @@
 
 using namespace iCub::iDynTree;
 
-idyn_ros_interface::idyn_ros_interface():
-    robot(),
+idyn_ros_interface::idyn_ros_interface(const std::string &robot_name,
+                                       const std::string &urdf_path,
+                                       const std::string &srdf_path):
+    robot(robot_name, urdf_path, srdf_path),
     _n(),
     _q_subs(),
     _br(),
