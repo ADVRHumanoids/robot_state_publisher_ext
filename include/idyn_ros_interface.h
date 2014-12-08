@@ -17,7 +17,9 @@ public:
     iDynUtils robot;
     idynutils::convex_hull convex_hull;
 
-    idyn_ros_interface();
+    idyn_ros_interface(const std::string& robot_name,
+                       const std::string& urdf_path,
+                       const std::string& srdf_path);
     ~idyn_ros_interface();
 
     void publishCoMtf(const ros::Time& t);
