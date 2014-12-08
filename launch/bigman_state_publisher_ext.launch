@@ -1,0 +1,11 @@
+<launch>
+     
+     <!-- robot_state_publisher_ext -->	
+     <node pkg="robot_state_publisher_ext" type="robot_state_publisher_ext_node" name="robot_state_publisher_ext" output="screen" >
+       <param name="robot_name" type="string" value="bigman" />
+       <param name="urdf_path" type="string" value="$(find bigman_urdf)/urdf/bigman.urdf" />
+       <param name="srdf_path" type="string" value="$(find bigman_srdf)/srdf/bigman.srdf" />
+     </node>
+     
+
+</launch>
