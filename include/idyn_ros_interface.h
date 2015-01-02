@@ -19,7 +19,8 @@ public:
 
     idyn_ros_interface(const std::string& robot_name,
                        const std::string& urdf_path,
-                       const std::string& srdf_path);
+                       const std::string& srdf_path,
+                       const std::string& tf_prefix);
     ~idyn_ros_interface();
 
     void publishCoMtf(const ros::Time& t);
@@ -32,6 +33,7 @@ private:
     tf::TransformListener _lr;
     ros::Publisher _vis_pub;
 
+    std::string _tf_prefix;
 
     yarp::sig::Vector _q;
 

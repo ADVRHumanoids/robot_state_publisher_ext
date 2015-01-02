@@ -5,17 +5,21 @@ using namespace iCub::iDynTree;
 
 idyn_ros_interface::idyn_ros_interface(const std::string &robot_name,
                                        const std::string &urdf_path,
-                                       const std::string &srdf_path):
+                                       const std::string &srdf_path,
+                                       const std::string &tf_prefix):
     robot(robot_name, urdf_path, srdf_path),
     _n(),
     _q_subs(),
     _br(),
     _lr(),
     _q(robot.iDyn3_model.getNrOfDOFs(), 0.0),
-    reference_frame_CoM("world")
+    reference_frame_CoM("world"),
+    _tf_prefix(tf_prefix)
 {
     _q_subs = _n.subscribe("/joint_states", 100, &idyn_ros_interface::updateIdynCallBack, this);
-    _vis_pub = _n.advertise<visualization_msgs::Marker>( "robot_state_publisher_ext_viz", 0 );
+
+    std::string marker_viz_name = tf::resolve(_tf_prefix, "robot_state_publisher_ext_viz");
+    _vis_pub = _n.advertise<visualization_msgs::Marker>( marker_viz_name, 0 );
 
     robot.updateiDyn3Model(_q, _q, _q, true);
 }
@@ -57,14 +61,15 @@ void idyn_ros_interface::publishCoMtf(const ros::Time &t)
     CoM_transform.setIdentity();
     CoM_transform.setOrigin(tf::Vector3(CoM[0], CoM[1], CoM[2]));
 
-    _br.sendTransform(tf::StampedTransform(CoM_transform, t,
-                                           reference_frame_CoM, "CoM"));
+    std::string frame_id = tf::resolve(_tf_prefix, reference_frame_CoM);
+    std::string child_frame_id = tf::resolve(_tf_prefix, "CoM");
+    _br.sendTransform(tf::StampedTransform(CoM_transform, t, frame_id, child_frame_id));
 
     visualization_msgs::Marker com_projected_marker;
 
-    com_projected_marker.header.frame_id = reference_frame_CoM;
+    com_projected_marker.header.frame_id = frame_id;
     com_projected_marker.header.stamp = t;
-    com_projected_marker.ns = "com_projected";
+    com_projected_marker.ns = tf::resolve(_tf_prefix, "com_projected");
     com_projected_marker.id = 1;
     com_projected_marker.type = visualization_msgs::Marker::SPHERE;
     com_projected_marker.action = visualization_msgs::Marker::ADD;
@@ -99,8 +104,9 @@ void idyn_ros_interface::publishWorld(const ros::Time &t)
     world_T_base_link_tf.setOrigin(tf::Vector3(world_T_base_link.p.x(), world_T_base_link.p.y(), world_T_base_link.p.z()));
     world_T_base_link_tf.setRotation(tf::Quaternion(qx, qy, qz, qw));
 
-    _br.sendTransform(tf::StampedTransform(world_T_base_link_tf, t,
-                                           "world", "base_link"));
+    std::string frame_id = tf::resolve(_tf_prefix, "world");
+    std::string child_frame_id = tf::resolve(_tf_prefix, "base_link");
+    _br.sendTransform(tf::StampedTransform(world_T_base_link_tf, t, frame_id, child_frame_id));
 }
 
 void idyn_ros_interface::publishConvexHull(const ros::Time& t)
@@ -112,9 +118,11 @@ void idyn_ros_interface::publishConvexHull(const ros::Time& t)
         yarp::sig::Vector CoM( robot.iDyn3_model.getCOM());
         visualization_msgs::Marker ch_marker;
 
-        ch_marker.header.frame_id = "CoM";
+        std::string frame_id = tf::resolve(_tf_prefix, "CoM");
+
+        ch_marker.header.frame_id = frame_id;
         ch_marker.header.stamp = t;
-        ch_marker.ns = "convex_hull";
+        ch_marker.ns = tf::resolve(_tf_prefix, "convex_hull");
         ch_marker.id = 0;
         ch_marker.type = visualization_msgs::Marker::LINE_STRIP;
         ch_marker.action = visualization_msgs::Marker::ADD;

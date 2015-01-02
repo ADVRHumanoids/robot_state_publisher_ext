@@ -25,7 +25,10 @@ int main(int argc, char **argv)
         ROS_ERROR("srdf_path param not provided!");
         return 0;}
 
-    idyn_ros_interface robot(robot_name, urdf_path, srdf_path);
+    std::string tf_prefix;
+    n.param("tf_prefix", tf_prefix, std::string(""));
+
+    idyn_ros_interface robot(robot_name, urdf_path, srdf_path, tf_prefix);
 
     ROS_INFO("Starting Robot State Publisher Extended Node");
 
