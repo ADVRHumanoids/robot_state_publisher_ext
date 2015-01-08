@@ -6,7 +6,9 @@ using namespace iCub::iDynTree;
 idyn_ros_interface::idyn_ros_interface(const std::string &robot_name,
                                        const std::string &urdf_path,
                                        const std::string &srdf_path,
-                                       const std::string &tf_prefix):
+                                       const std::string &tf_prefix,
+                                       XmlRpc::XmlRpcValue& ft_frames,
+                                       XmlRpc::XmlRpcValue& ZMP_frames):
     robot(robot_name, urdf_path, srdf_path),
     _n(),
     _q_subs(),
@@ -18,10 +20,28 @@ idyn_ros_interface::idyn_ros_interface(const std::string &robot_name,
 {
     _q_subs = _n.subscribe("/joint_states", 100, &idyn_ros_interface::updateIdynCallBack, this);
 
+
     std::string marker_viz_name = tf::resolve(_tf_prefix, "robot_state_publisher_ext_viz");
     _vis_pub = _n.advertise<visualization_msgs::Marker>( marker_viz_name, 0 );
 
     robot.updateiDyn3Model(_q, _q, _q, true);
+
+    if(!(ft_frames.getType() == XmlRpc::XmlRpcValue::TypeInvalid)){
+        for(unsigned int i = 0; i < ft_frames.size(); ++i){
+            _ft_frames.push_back(ft_frames[i]);
+            _ft_vals.push_back(yarp::sig::Vector(6, 0.0));
+            ROS_ERROR("%s", _ft_frames[i].c_str());
+            _ft_subscribers.push_back(_n.subscribe("/" + _ft_frames[i] +"/ft_sensor", 100,
+                                                   &idyn_ros_interface::updateFromFTSensor, this));}
+    }
+
+    if(!(ZMP_frames.getType() == XmlRpc::XmlRpcValue::TypeInvalid)){
+        for(unsigned int i = 0; i < ZMP_frames.size(); ++i){
+            _ZMP_frames.push_back(ZMP_frames[i]);
+            _ZMPs.push_back(yarp::sig::Vector(3, 0.0));}
+    }
+
+
 }
 
 idyn_ros_interface::~idyn_ros_interface()
@@ -43,6 +63,91 @@ void idyn_ros_interface::updateIdynCallBack(const sensor_msgs::JointState &msg)
 
     yarp::sig::Vector foo(_q.size(), 0.0);
     robot.updateiDyn3Model(_q, foo, foo, true);
+}
+
+void idyn_ros_interface::updateFromFTSensor(const geometry_msgs::WrenchStamped &msg)
+{
+    int ft_index = distance(_ft_frames.begin(),find(_ft_frames.begin(), _ft_frames.end(), msg.header.frame_id));
+
+    _ft_vals[ft_index][0] = msg.wrench.force.x;
+    _ft_vals[ft_index][1] = msg.wrench.force.y;
+    _ft_vals[ft_index][2] = msg.wrench.force.z;
+    _ft_vals[ft_index][3] = msg.wrench.torque.x;
+    _ft_vals[ft_index][4] = msg.wrench.torque.y;
+    _ft_vals[ft_index][5] = msg.wrench.torque.z;
+
+    yarp::sig::Matrix sensor_to_sole = robot.iDyn3_model.getPosition(
+                    robot.iDyn3_model.getLinkIndex(_ft_frames[ft_index]),
+                    robot.iDyn3_model.getLinkIndex(_ZMP_frames[ft_index])
+                );
+
+    double d = fabs(sensor_to_sole(2,3));
+
+    _ZMPs[ft_index] = cartesian_utils::computeFootZMP(_ft_vals[ft_index].subVector(0,2),
+                                                      _ft_vals[ft_index].subVector(3,5), d, 1.0);
+}
+
+void idyn_ros_interface::publishZMPs(const ros::Time& t)
+{
+    visualization_msgs::Marker ZMP_marker;
+
+    for(unsigned int i = 0; i < _ZMPs.size(); ++i)
+    {
+        ZMP_marker.header.frame_id = _ft_frames[i];
+        ZMP_marker.header.stamp = t;
+        ZMP_marker.ns = tf::resolve(_tf_prefix, "ZMP"+_ft_frames[i]);
+        ZMP_marker.id = 2+i;
+        ZMP_marker.type = visualization_msgs::Marker::SPHERE;
+        ZMP_marker.action = visualization_msgs::Marker::ADD;
+
+        ZMP_marker.pose.orientation.x = 0.0;
+        ZMP_marker.pose.orientation.y = 0.0;
+        ZMP_marker.pose.orientation.z = 0.0;
+        ZMP_marker.pose.orientation.w = 1.0;
+        ZMP_marker.pose.position.x = _ZMPs[i][0];
+        ZMP_marker.pose.position.y = _ZMPs[i][1];
+        ZMP_marker.pose.position.z = _ZMPs[i][2];
+
+        ZMP_marker.color.a = 1.0;
+        ZMP_marker.color.r = 0.0;
+        ZMP_marker.color.g = 1.0;
+        ZMP_marker.color.b = 1.0;
+
+        ZMP_marker.scale.x = 0.015;
+        ZMP_marker.scale.y = 0.015;
+        ZMP_marker.scale.z = 0.015;
+        _vis_pub.publish(ZMP_marker);
+    }
+
+    yarp::sig::Vector ZMP = cartesian_utils::computeZMP(_ft_vals[0].subVector(0,2), _ft_vals[0].subVector(3,5), _ZMPs[0],
+                                       _ft_vals[1].subVector(0,2), _ft_vals[1].subVector(3,5), _ZMPs[1], 1.0);
+
+    ///TODO: Transform ZMP in world frame!
+
+    ZMP_marker.header.frame_id = "world";
+    ZMP_marker.header.stamp = t;
+    ZMP_marker.ns = tf::resolve(_tf_prefix, "ZMP");
+    ZMP_marker.id = 2+_ZMPs.size()+1;
+    ZMP_marker.type = visualization_msgs::Marker::SPHERE;
+    ZMP_marker.action = visualization_msgs::Marker::ADD;
+
+    ZMP_marker.pose.orientation.x = 0.0;
+    ZMP_marker.pose.orientation.y = 0.0;
+    ZMP_marker.pose.orientation.z = 0.0;
+    ZMP_marker.pose.orientation.w = 1.0;
+    ZMP_marker.pose.position.x = ZMP[0];
+    ZMP_marker.pose.position.y = ZMP[1];
+    ZMP_marker.pose.position.z = ZMP[2];
+
+    ZMP_marker.color.a = 1.0;
+    ZMP_marker.color.r = 0.0;
+    ZMP_marker.color.g = 1.0;
+    ZMP_marker.color.b = 1.0;
+
+    ZMP_marker.scale.x = 0.015;
+    ZMP_marker.scale.y = 0.015;
+    ZMP_marker.scale.z = 0.015;
+    _vis_pub.publish(ZMP_marker);
 }
 
 void idyn_ros_interface::fillKinematicChainConfig(const kinematic_chain &kc,

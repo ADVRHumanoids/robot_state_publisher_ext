@@ -10,6 +10,7 @@
 #include <idynutils/convex_hull.h>
 #include <visualization_msgs/Marker.h>
 #include <kdl/frames.hpp>
+#include <geometry_msgs/WrenchStamped.h>
 
 class idyn_ros_interface
 {
@@ -20,12 +21,15 @@ public:
     idyn_ros_interface(const std::string& robot_name,
                        const std::string& urdf_path,
                        const std::string& srdf_path,
-                       const std::string& tf_prefix);
+                       const std::string& tf_prefix,
+                       XmlRpc::XmlRpcValue& ft_frames,
+                       XmlRpc::XmlRpcValue& ZMP_frames);
     ~idyn_ros_interface();
 
     void publishCoMtf(const ros::Time& t);
     void publishWorld(const ros::Time& t);
     void publishConvexHull(const ros::Time& t);
+    void publishZMPs(const ros::Time& t);
 private:
     ros::NodeHandle _n;
     ros::Subscriber _q_subs;
@@ -37,9 +41,17 @@ private:
 
     yarp::sig::Vector _q;
 
+    std::vector<std::string> _ft_frames;
+    std::vector<std::string> _ZMP_frames;
+    std::vector<yarp::sig::Vector> _ZMPs;
+    std::vector<ros::Subscriber> _ft_subscribers;
+    std::vector<yarp::sig::Vector> _ft_vals;
+
+
     std::string reference_frame_CoM;
     
     void updateIdynCallBack(const sensor_msgs::JointState &msg);
+    void updateFromFTSensor(const geometry_msgs::WrenchStamped &msg);
     void fillKinematicChainConfig(const kinematic_chain& kc,
                                   std::map<std::string, double>& joint_names_values);
 };

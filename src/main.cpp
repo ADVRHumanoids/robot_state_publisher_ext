@@ -25,10 +25,24 @@ int main(int argc, char **argv)
         ROS_ERROR("srdf_path param not provided!");
         return 0;}
 
+    XmlRpc::XmlRpcValue ft_frames;
+    n.param("ft_frames", ft_frames, ft_frames);
+    if(ft_frames.getType() == XmlRpc::XmlRpcValue::TypeInvalid)
+        ROS_WARN("NO ft_frames provided!");
+    else
+        ROS_INFO("Provided %i ft_frames", ft_frames.size());
+
+    XmlRpc::XmlRpcValue ZMP_frames;
+    n.param("ZMP_frames", ZMP_frames, ZMP_frames);
+    if(ZMP_frames.getType() == XmlRpc::XmlRpcValue::TypeInvalid)
+        ROS_WARN("NO ZMP_frames provided!");
+    else
+        ROS_INFO("Provided %i ZMP_frames", ZMP_frames.size());
+
     std::string tf_prefix;
     n.param("tf_prefix", tf_prefix, std::string(""));
 
-    idyn_ros_interface robot(robot_name, urdf_path, srdf_path, tf_prefix);
+    idyn_ros_interface robot(robot_name, urdf_path, srdf_path, tf_prefix, ft_frames, ZMP_frames);
 
     ROS_INFO("Starting Robot State Publisher Extended Node");
 
@@ -42,6 +56,7 @@ int main(int argc, char **argv)
         robot.publishWorld(t);
         robot.publishCoMtf(t);
         robot.publishConvexHull(t);
+        robot.publishZMPs(t);
 
         ros::spinOnce();
         loop_rate.sleep();
