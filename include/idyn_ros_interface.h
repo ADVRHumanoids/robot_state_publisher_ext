@@ -15,6 +15,15 @@
 class idyn_ros_interface
 {
 public:
+    struct ft_sensor{
+        std::string ft_frame;
+        std::string zmp_frame;
+        yarp::sig::Vector zmp;
+        ros::Subscriber subscribers;
+        yarp::sig::Vector forces;
+        yarp::sig::Vector torques;
+    };
+
     iDynUtils robot;
     idynutils::convex_hull convex_hull;
 
@@ -41,11 +50,7 @@ private:
 
     yarp::sig::Vector _q;
 
-    std::vector<std::string> _ft_frames;
-    std::vector<std::string> _ZMP_frames;
-    std::vector<yarp::sig::Vector> _ZMPs;
-    std::vector<ros::Subscriber> _ft_subscribers;
-    std::vector<yarp::sig::Vector> _ft_vals;
+    std::vector<ft_sensor> _ft_sensors;
 
 
     std::string reference_frame_CoM;
