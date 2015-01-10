@@ -1,4 +1,6 @@
 #include <idyn_ros_interface.h>
+#include <tf/transform_datatypes.h>
+#include <kdl_conversions/kdl_msg.h>
 
 
 using namespace iCub::iDynTree;
@@ -119,33 +121,48 @@ void idyn_ros_interface::publishZMPs(const ros::Time& t)
         _vis_pub.publish(ZMP_marker);
     }
 
-    yarp::sig::Matrix sensor_to_sole = robot.iDyn3_model.getPosition(
-                    robot.iDyn3_model.getLinkIndex(_ft_sensors[0].ft_frame),
-                    robot.iDyn3_model.getLinkIndex(_ft_sensors[0].zmp_frame)
-                );
-    double d = fabs(sensor_to_sole(2,3));
-
-    yarp::sig::Vector ZMP = cartesian_utils::computeZMP(_ft_sensors[0].forces, _ft_sensors[0].torques,
-                                                        _ft_sensors[1].forces, _ft_sensors[1].torques,
-                                                        d, 1.0);
-
     // Here we compute the ZMP frame of ref:
     // if both the feet are in the ground
-    std::string child_frame_id;
+    std::string child_frame_id = "";
+    yarp::sig::Vector ZMP(3, 0.0);
     if(_ft_sensors[0].forces[2] > 1.0 && _ft_sensors[1].forces[2] > 1.0)
     {
         KDL::Frame ft1_to_ft2 = robot.iDyn3_model.getPositionKDL(
                         robot.iDyn3_model.getLinkIndex(_ft_sensors[0].ft_frame),
-                        robot.iDyn3_model.getLinkIndex(_ft_sensors[1].ft_frame)
-                    );
+                        robot.iDyn3_model.getLinkIndex(_ft_sensors[1].ft_frame));
 
-        tf::Transform ZMP_ref_frame;
-        ZMP_ref_frame.setIdentity();
-        ZMP_ref_frame.setOrigin(tf::Vector3(ft1_to_ft2.p.x()/2.0, ft1_to_ft2.p.y()/2.0, 0.0));
+        KDL::Frame ZMP_ref_frame; ZMP_ref_frame.Identity();
+        ZMP_ref_frame.p[0] = ft1_to_ft2.p.x()/2.0;
+        ZMP_ref_frame.p[1] = ft1_to_ft2.p.y()/2.0;
+        ZMP_ref_frame.p[2] = 0.0;
 
         std::string frame_id = tf::resolve(_tf_prefix, _ft_sensors[0].ft_frame);
         child_frame_id = tf::resolve(_tf_prefix, "ZMP");
-        _br.sendTransform(tf::StampedTransform(ZMP_ref_frame, t, frame_id, child_frame_id));
+        _br.sendTransform(tf::StampedTransform(tf::Transform(tf::Quaternion::getIdentity(),
+                                                             tf::Vector3(ZMP_ref_frame.p.x(),
+                                                                         ZMP_ref_frame.p.y(),
+                                                                         ZMP_ref_frame.p.z())),
+                                                             t, frame_id, child_frame_id));
+
+
+
+        KDL::Frame ZMPL_in_ZMP_frame; ZMPL_in_ZMP_frame = ZMPL_in_ZMP_frame.Identity();
+        ZMPL_in_ZMP_frame.p[0] = _ft_sensors[0].zmp[0];
+        ZMPL_in_ZMP_frame.p[1] = _ft_sensors[0].zmp[1];
+        ZMPL_in_ZMP_frame.p[2] = _ft_sensors[0].zmp[2];
+        ZMPL_in_ZMP_frame = ZMP_ref_frame.Inverse() * ZMPL_in_ZMP_frame;
+
+        KDL::Frame ZMPR_in_ZMP_frame; ZMPR_in_ZMP_frame = ZMPR_in_ZMP_frame.Identity();
+        ZMPR_in_ZMP_frame.p[0] = _ft_sensors[1].zmp[0];
+        ZMPR_in_ZMP_frame.p[1] = _ft_sensors[1].zmp[1];
+        ZMPR_in_ZMP_frame.p[2] = _ft_sensors[1].zmp[2];
+        ZMPR_in_ZMP_frame = ZMP_ref_frame.Inverse() * ft1_to_ft2 * ZMPR_in_ZMP_frame;
+
+        yarp::sig::Vector ZMPL(3,0.0);
+        ZMPL[0] = ZMPL_in_ZMP_frame.p.x(); ZMPL[1] = ZMPL_in_ZMP_frame.p.y(); ZMPL[2] = ZMPL_in_ZMP_frame.p.z();
+        yarp::sig::Vector ZMPR(3,0.0);
+        ZMPR[0] = ZMPR_in_ZMP_frame.p.x(); ZMPR[1] = ZMPR_in_ZMP_frame.p.y(); ZMPR[2] = ZMPR_in_ZMP_frame.p.z();
+        ZMP = cartesian_utils::computeZMP(_ft_sensors[0].forces[2], _ft_sensors[1].forces[2], ZMPL, ZMPR, 1.0);
     }
 
     ZMP_marker.header.frame_id = child_frame_id;

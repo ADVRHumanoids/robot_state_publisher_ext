@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   roslib
   tf
+  kdl_conversions
 )
 
 ## System dependencies are found with CMake's conventions
