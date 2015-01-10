@@ -11,17 +11,65 @@
 #include <visualization_msgs/Marker.h>
 #include <kdl/frames.hpp>
 #include <geometry_msgs/WrenchStamped.h>
+#include <numeric>
 
 class idyn_ros_interface
 {
 public:
-    struct ft_sensor{
+    class ft_sensor{
+    public:
+        ft_sensor(const unsigned int buffer_size = 10):
+            _buffer_size(buffer_size)
+        {}
+
         std::string ft_frame;
         std::string zmp_frame;
         yarp::sig::Vector zmp;
         ros::Subscriber subscribers;
         yarp::sig::Vector forces;
         yarp::sig::Vector torques;
+
+    private:
+        unsigned int _buffer_size;
+        std::list<yarp::sig::Vector> _zmp_average;
+
+    public: yarp::sig::Vector averageZMP(const yarp::sig::Vector& last_computed_zmp)
+        {
+            if(_buffer_size == 0)
+                _buffer_size = 1;
+
+            if(_zmp_average.size() == _buffer_size)
+                _zmp_average.pop_front();
+            _zmp_average.push_back(last_computed_zmp);
+
+            yarp::sig::Vector zmp_av(3, 0.0);
+            for(std::list<yarp::sig::Vector>::iterator it = _zmp_average.begin();
+                it != _zmp_average.end(); it++){
+                yarp::sig::Vector zmp_i = *it;
+                zmp_av[0] += zmp_i[0];
+                zmp_av[1] += zmp_i[1];}
+            zmp_av[2] = zmp[2];
+            zmp_av[0] = zmp_av[0]/(double)_buffer_size;
+            zmp_av[1] = zmp_av[1]/(double)_buffer_size;
+            return zmp_av;
+        }
+
+    public: yarp::sig::Vector getAverageZMP()
+        {
+            if(_buffer_size == 0)
+                _buffer_size = 1;
+
+            yarp::sig::Vector zmp_av(3, 0.0);
+            for(std::list<yarp::sig::Vector>::iterator it = _zmp_average.begin();
+                it != _zmp_average.end(); it++){
+                yarp::sig::Vector zmp_i = *it;
+                zmp_av[0] += zmp_i[0];
+                zmp_av[1] += zmp_i[1];}
+            zmp_av[2] = zmp[2];
+            zmp_av[0] = zmp_av[0]/(double)_buffer_size;
+            zmp_av[1] = zmp_av[1]/(double)_buffer_size;
+            return zmp_av;
+        }
     };
 
     iDynUtils robot;
