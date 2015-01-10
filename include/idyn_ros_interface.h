@@ -48,9 +48,9 @@ public:
                 yarp::sig::Vector zmp_i = *it;
                 zmp_av[0] += zmp_i[0];
                 zmp_av[1] += zmp_i[1];}
-            zmp_av[2] = zmp[2];
             zmp_av[0] = zmp_av[0]/(double)_buffer_size;
             zmp_av[1] = zmp_av[1]/(double)_buffer_size;
+            zmp_av[2] = zmp[2];
             return zmp_av;
         }
 
@@ -65,9 +65,9 @@ public:
                 yarp::sig::Vector zmp_i = *it;
                 zmp_av[0] += zmp_i[0];
                 zmp_av[1] += zmp_i[1];}
-            zmp_av[2] = zmp[2];
             zmp_av[0] = zmp_av[0]/(double)_buffer_size;
             zmp_av[1] = zmp_av[1]/(double)_buffer_size;
+            zmp_av[2] = zmp[2];
             return zmp_av;
         }
     };

@@ -36,9 +36,11 @@ idyn_ros_interface::idyn_ros_interface(const std::string &robot_name,
             ft.torques = yarp::sig::Vector(3, 0.0);
             ft.subscribers = _n.subscribe("/" + ft.ft_frame +"/ft_sensor", 100,
                                                    &idyn_ros_interface::updateFromFTSensor, this);
-            if(!(ZMP_frames.getType() == XmlRpc::XmlRpcValue::TypeInvalid)){
+            if(!(ZMP_frames.getType() == XmlRpc::XmlRpcValue::TypeInvalid))
                 ft.zmp_frame = std::string(ZMP_frames[i]);
-                ft.zmp = yarp::sig::Vector(3, 0.0);}
+            else
+                ft.zmp_frame = std::string(ft_frames[i]);
+            ft.zmp = yarp::sig::Vector(3, 0.0);
 
             _ft_sensors.push_back(ft);
         }
@@ -170,7 +172,7 @@ void idyn_ros_interface::publishZMPs(const ros::Time& t)
         ZMP_marker.header.frame_id = child_frame_id;
         ZMP_marker.header.stamp = t;
         ZMP_marker.ns = child_frame_id;
-        ZMP_marker.id = 2+_ft_sensors.size()+1;
+        ZMP_marker.id = 2+_ft_sensors.size();
         ZMP_marker.type = visualization_msgs::Marker::SPHERE;
         ZMP_marker.action = visualization_msgs::Marker::ADD;
 
