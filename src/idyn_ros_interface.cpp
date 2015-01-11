@@ -126,7 +126,7 @@ void idyn_ros_interface::publishZMPs(const ros::Time& t)
         }
 
         // Here we compute the ZMP frame of ref:
-        // if both the feet are in the ground
+        // if both the feet are in the ground we use l_leg_ft as reference frame
         std::string child_frame_id = "";
         yarp::sig::Vector ZMP(3, 0.0);
         if(_ft_sensors[0].forces[2] > 1.0 && _ft_sensors[1].forces[2] > 1.0)
@@ -135,43 +135,24 @@ void idyn_ros_interface::publishZMPs(const ros::Time& t)
                             robot.iDyn3_model.getLinkIndex(_ft_sensors[0].ft_frame),
                             robot.iDyn3_model.getLinkIndex(_ft_sensors[1].ft_frame));
 
-            KDL::Frame ZMP_ref_frame; ZMP_ref_frame.Identity();
-            ZMP_ref_frame.p[0] = ft1_to_ft2.p.x()/2.0;
-            ZMP_ref_frame.p[1] = ft1_to_ft2.p.y()/2.0;
-            ZMP_ref_frame.p[2] = 0.0;
-
-            std::string frame_id = tf::resolve(_tf_prefix, _ft_sensors[0].ft_frame);
-            child_frame_id = tf::resolve(_tf_prefix, "ZMP");
-            _br.sendTransform(tf::StampedTransform(tf::Transform(tf::Quaternion::getIdentity(),
-                                                                 tf::Vector3(ZMP_ref_frame.p.x(),
-                                                                             ZMP_ref_frame.p.y(),
-                                                                             ZMP_ref_frame.p.z())),
-                                                                 t, frame_id, child_frame_id));
-
-
-
-            KDL::Frame ZMPL_in_ZMP_frame; ZMPL_in_ZMP_frame = ZMPL_in_ZMP_frame.Identity();
-            ZMPL_in_ZMP_frame.p[0] = _ft_sensors[0].getAverageZMP()[0];
-            ZMPL_in_ZMP_frame.p[1] = _ft_sensors[0].getAverageZMP()[1];
-            ZMPL_in_ZMP_frame.p[2] = _ft_sensors[0].getAverageZMP()[2];
-            ZMPL_in_ZMP_frame = ZMP_ref_frame.Inverse() * ZMPL_in_ZMP_frame;
-
-            KDL::Frame ZMPR_in_ZMP_frame; ZMPR_in_ZMP_frame = ZMPR_in_ZMP_frame.Identity();
-            ZMPR_in_ZMP_frame.p[0] = _ft_sensors[1].getAverageZMP()[0];
-            ZMPR_in_ZMP_frame.p[1] = _ft_sensors[1].getAverageZMP()[1];
-            ZMPR_in_ZMP_frame.p[2] = _ft_sensors[1].getAverageZMP()[2];
-            ZMPR_in_ZMP_frame = ZMP_ref_frame.Inverse() * ft1_to_ft2 * ZMPR_in_ZMP_frame;
+            KDL::Frame ZMPR_in_l_leg_ft_frame; ZMPR_in_l_leg_ft_frame = ZMPR_in_l_leg_ft_frame.Identity();
+            ZMPR_in_l_leg_ft_frame.p[0] = _ft_sensors[1].getAverageZMP()[0];
+            ZMPR_in_l_leg_ft_frame.p[1] = _ft_sensors[1].getAverageZMP()[1];
+            ZMPR_in_l_leg_ft_frame.p[2] = _ft_sensors[1].getAverageZMP()[2];
+            ZMPR_in_l_leg_ft_frame = ft1_to_ft2 * ZMPR_in_l_leg_ft_frame;
 
             yarp::sig::Vector ZMPL(3,0.0);
-            ZMPL[0] = ZMPL_in_ZMP_frame.p.x(); ZMPL[1] = ZMPL_in_ZMP_frame.p.y(); ZMPL[2] = ZMPL_in_ZMP_frame.p.z();
+            ZMPL[0] = _ft_sensors[0].getAverageZMP()[0]; ZMPL[1] = _ft_sensors[0].getAverageZMP()[1]; ZMPL[2] = _ft_sensors[0].getAverageZMP()[2];
             yarp::sig::Vector ZMPR(3,0.0);
-            ZMPR[0] = ZMPR_in_ZMP_frame.p.x(); ZMPR[1] = ZMPR_in_ZMP_frame.p.y(); ZMPR[2] = ZMPR_in_ZMP_frame.p.z();
+            ZMPR[0] = ZMPR_in_l_leg_ft_frame.p.x(); ZMPR[1] = ZMPR_in_l_leg_ft_frame.p.y(); ZMPR[2] = ZMPR_in_l_leg_ft_frame.p.z();
             ZMP = cartesian_utils::computeZMP(_ft_sensors[0].forces[2], _ft_sensors[1].forces[2], ZMPL, ZMPR, 1.0);
+
+            child_frame_id = tf::resolve(_tf_prefix, _ft_sensors[0].ft_frame);
         }
 
         ZMP_marker.header.frame_id = child_frame_id;
         ZMP_marker.header.stamp = t;
-        ZMP_marker.ns = child_frame_id;
+        ZMP_marker.ns = "ZMP";
         ZMP_marker.id = 2+_ft_sensors.size();
         ZMP_marker.type = visualization_msgs::Marker::SPHERE;
         ZMP_marker.action = visualization_msgs::Marker::ADD;
