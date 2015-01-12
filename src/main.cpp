@@ -60,6 +60,7 @@ int main(int argc, char **argv)
 
         ros::spinOnce();
         loop_rate.sleep();
+
     }
 
     return 0;

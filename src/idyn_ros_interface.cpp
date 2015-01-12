@@ -26,8 +26,6 @@ idyn_ros_interface::idyn_ros_interface(const std::string &robot_name,
     std::string marker_viz_name = tf::resolve(_tf_prefix, "robot_state_publisher_ext_viz");
     _vis_pub = _n.advertise<visualization_msgs::Marker>( marker_viz_name, 0 );
 
-    robot.updateiDyn3Model(_q, _q, _q, true);
-
     if(!(ft_frames.getType() == XmlRpc::XmlRpcValue::TypeInvalid)){
         ft_sensor ft(10);
         for(unsigned int i = 0; i < ft_frames.size(); ++i){
@@ -45,6 +43,10 @@ idyn_ros_interface::idyn_ros_interface(const std::string &robot_name,
             _ft_sensors.push_back(ft);
         }
     }
+
+    //if(_ft_sensors.empty())
+        robot.updateiDyn3Model(_q, _q, _q, true);
+
 }
 
 idyn_ros_interface::~idyn_ros_interface()
@@ -64,23 +66,45 @@ void idyn_ros_interface::updateIdynCallBack(const sensor_msgs::JointState &msg)
     fillKinematicChainConfig(robot.right_leg, joint_name_value_map);
     fillKinematicChainConfig(robot.torso, joint_name_value_map);
 
-    yarp::sig::Vector foo(_q.size(), 0.0);
-    robot.updateiDyn3Model(_q, foo, foo, true);
+    if(_ft_sensors.empty()){
+        yarp::sig::Vector foo(_q.size(), 0.0);
+        robot.updateiDyn3Model(_q, foo, foo, true);}
 }
 
 void idyn_ros_interface::updateFromFTSensor(const geometry_msgs::WrenchStamped &msg)
 {
-    for(unsigned int i = 0; i < _ft_sensors.size(); ++i)
+    if(!_ft_sensors.empty())
     {
-        if(_ft_sensors[i].ft_frame == msg.header.frame_id)
+        for(unsigned int i = 0; i < _ft_sensors.size(); ++i)
         {
-            _ft_sensors[i].forces[0] = msg.wrench.force.x;
-            _ft_sensors[i].forces[1] = msg.wrench.force.y;
-            _ft_sensors[i].forces[2] = msg.wrench.force.z;
-            _ft_sensors[i].torques[0] = msg.wrench.torque.x;
-            _ft_sensors[i].torques[1] = msg.wrench.torque.y;
-            _ft_sensors[i].torques[2] = msg.wrench.torque.z;
+            if(_ft_sensors[i].ft_frame == msg.header.frame_id)
+            {
+                _ft_sensors[i].forces[0] = msg.wrench.force.x;
+                _ft_sensors[i].forces[1] = msg.wrench.force.y;
+                _ft_sensors[i].forces[2] = msg.wrench.force.z;
+                _ft_sensors[i].torques[0] = msg.wrench.torque.x;
+                _ft_sensors[i].torques[1] = msg.wrench.torque.y;
+                _ft_sensors[i].torques[2] = msg.wrench.torque.z;
+            }
+        }
 
+        //if the robot is in double stance phase of single stance with the left foot then
+        if(_ft_sensors[0].forces[2] > 1.0 && _ft_sensors[1].forces[2] > 1.0){
+            robot.switchAnchor(_ft_sensors[0].zmp_frame);}
+        //if the robot is in single stance with the left foot then
+        else if(_ft_sensors[0].forces[2] > 1.0){
+            robot.switchAnchor(_ft_sensors[0].zmp_frame);}
+        //if the robot is in single stance with the right foot then
+        else if(_ft_sensors[1].forces[2] > 1.0){
+            robot.switchAnchor(_ft_sensors[1].zmp_frame);}
+        //else we don't do anything since we assume the robot fell
+
+        //Update model according to the last reads
+        yarp::sig::Vector foo(_q.size(), 0.0);
+        robot.updateiDyn3Model(_q, foo, foo, true);
+
+        for(unsigned int i = 0; i < _ft_sensors.size(); ++i)
+        {
             yarp::sig::Matrix sensor_to_sole = robot.iDyn3_model.getPosition(
                             robot.iDyn3_model.getLinkIndex(_ft_sensors[i].ft_frame),
                             robot.iDyn3_model.getLinkIndex(_ft_sensors[i].zmp_frame));
@@ -126,9 +150,9 @@ void idyn_ros_interface::publishZMPs(const ros::Time& t)
         }
 
         // Here we compute the ZMP frame of ref:
-        // if both the feet are in the ground we use l_leg_ft as reference frame
         std::string child_frame_id = "";
         yarp::sig::Vector ZMP(3, 0.0);
+        // if both the feet are in the ground we use l_leg_ft as reference frame OR
         if(_ft_sensors[0].forces[2] > 1.0 && _ft_sensors[1].forces[2] > 1.0)
         {
             KDL::Frame ft1_to_ft2 = robot.iDyn3_model.getPositionKDL(
@@ -149,6 +173,22 @@ void idyn_ros_interface::publishZMPs(const ros::Time& t)
 
             child_frame_id = tf::resolve(_tf_prefix, _ft_sensors[0].ft_frame);
         }
+        // if only left foot is in the ground we use l_leg_ft as reference frame
+        else if(_ft_sensors[0].forces[2] > 1.0)
+        {
+            ZMP[0] = _ft_sensors[0].getAverageZMP()[0]; ZMP[1] = _ft_sensors[0].getAverageZMP()[1]; ZMP[2] = _ft_sensors[0].getAverageZMP()[2];
+            child_frame_id = tf::resolve(_tf_prefix, _ft_sensors[0].ft_frame);
+        }
+        // if only right foot is in the ground we use r_leg_ft as reference frame
+        else if(_ft_sensors[1].forces[2] > 1.0)
+        {
+            ZMP[0] = _ft_sensors[1].getAverageZMP()[0]; ZMP[1] = _ft_sensors[1].getAverageZMP()[1]; ZMP[2] = _ft_sensors[1].getAverageZMP()[2];
+
+            child_frame_id = tf::resolve(_tf_prefix, _ft_sensors[1].ft_frame);
+        }
+        // probably the robot is not in contact with the feet so we assume it fell and we return
+        else
+            return;
 
         ZMP_marker.header.frame_id = child_frame_id;
         ZMP_marker.header.stamp = t;
