@@ -2,6 +2,7 @@
 #include <tf/transform_datatypes.h>
 #include <kdl_conversions/kdl_msg.h>
 
+#define FT_SWITCHING_TH 0.0
 
 using namespace iCub::iDynTree;
 
@@ -44,8 +45,7 @@ idyn_ros_interface::idyn_ros_interface(const std::string &robot_name,
         }
     }
 
-    //if(_ft_sensors.empty())
-        robot.updateiDyn3Model(_q, _q, _q, true);
+    robot.updateiDyn3Model(_q, _q, _q, true);
 
 }
 
@@ -89,13 +89,13 @@ void idyn_ros_interface::updateFromFTSensor(const geometry_msgs::WrenchStamped &
         }
 
         //if the robot is in double stance phase of single stance with the left foot then
-        if(_ft_sensors[0].forces[2] > 1.0 && _ft_sensors[1].forces[2] > 1.0){
+        if(_ft_sensors[0].forces[2] > FT_SWITCHING_TH && _ft_sensors[1].forces[2] > FT_SWITCHING_TH){
             robot.switchAnchor(_ft_sensors[0].zmp_frame);}
         //if the robot is in single stance with the left foot then
-        else if(_ft_sensors[0].forces[2] > 1.0){
+        else if(_ft_sensors[0].forces[2] > FT_SWITCHING_TH){
             robot.switchAnchor(_ft_sensors[0].zmp_frame);}
         //if the robot is in single stance with the right foot then
-        else if(_ft_sensors[1].forces[2] > 1.0){
+        else if(_ft_sensors[1].forces[2] > FT_SWITCHING_TH){
             robot.switchAnchor(_ft_sensors[1].zmp_frame);}
         //else we don't do anything since we assume the robot fell
 
@@ -153,7 +153,7 @@ void idyn_ros_interface::publishZMPs(const ros::Time& t)
         std::string child_frame_id = "";
         yarp::sig::Vector ZMP(3, 0.0);
         // if both the feet are in the ground we use l_leg_ft as reference frame OR
-        if(_ft_sensors[0].forces[2] > 1.0 && _ft_sensors[1].forces[2] > 1.0)
+        if(_ft_sensors[0].forces[2] > FT_SWITCHING_TH && _ft_sensors[1].forces[2] > FT_SWITCHING_TH)
         {
             KDL::Frame ft1_to_ft2 = robot.iDyn3_model.getPositionKDL(
                             robot.iDyn3_model.getLinkIndex(_ft_sensors[0].ft_frame),
@@ -174,13 +174,13 @@ void idyn_ros_interface::publishZMPs(const ros::Time& t)
             child_frame_id = tf::resolve(_tf_prefix, _ft_sensors[0].ft_frame);
         }
         // if only left foot is in the ground we use l_leg_ft as reference frame
-        else if(_ft_sensors[0].forces[2] > 1.0)
+        else if(_ft_sensors[0].forces[2] > FT_SWITCHING_TH)
         {
             ZMP[0] = _ft_sensors[0].getAverageZMP()[0]; ZMP[1] = _ft_sensors[0].getAverageZMP()[1]; ZMP[2] = _ft_sensors[0].getAverageZMP()[2];
             child_frame_id = tf::resolve(_tf_prefix, _ft_sensors[0].ft_frame);
         }
         // if only right foot is in the ground we use r_leg_ft as reference frame
-        else if(_ft_sensors[1].forces[2] > 1.0)
+        else if(_ft_sensors[1].forces[2] > FT_SWITCHING_TH)
         {
             ZMP[0] = _ft_sensors[1].getAverageZMP()[0]; ZMP[1] = _ft_sensors[1].getAverageZMP()[1]; ZMP[2] = _ft_sensors[1].getAverageZMP()[2];
 
@@ -284,7 +284,7 @@ void idyn_ros_interface::publishConvexHull(const ros::Time& t)
 {
     std::list<std::string> links_in_contact;
     //if the robot is in double stance phase of single stance with the left foot then
-    if(_ft_sensors[0].forces[2] > 1.0 && _ft_sensors[1].forces[2] > 1.0){
+    if(_ft_sensors[0].forces[2] > FT_SWITCHING_TH && _ft_sensors[1].forces[2] > FT_SWITCHING_TH){
         links_in_contact.push_back("l_foot_lower_left_link");
         links_in_contact.push_back("l_foot_lower_right_link");
         links_in_contact.push_back("l_foot_upper_left_link");
@@ -294,13 +294,13 @@ void idyn_ros_interface::publishConvexHull(const ros::Time& t)
         links_in_contact.push_back("r_foot_upper_left_link");
         links_in_contact.push_back("r_foot_upper_right_link");}
     //if the robot is in single stance with the left foot then
-    else if(_ft_sensors[0].forces[2] > 1.0){
+    else if(_ft_sensors[0].forces[2] > FT_SWITCHING_TH){
         links_in_contact.push_back("l_foot_lower_left_link");
         links_in_contact.push_back("l_foot_lower_right_link");
         links_in_contact.push_back("l_foot_upper_left_link");
         links_in_contact.push_back("l_foot_upper_right_link");}
     //if the robot is in single stance with the right foot then
-    else if(_ft_sensors[1].forces[2] > 1.0){
+    else if(_ft_sensors[1].forces[2] > FT_SWITCHING_TH){
         links_in_contact.push_back("r_foot_lower_left_link");
         links_in_contact.push_back("r_foot_lower_right_link");
         links_in_contact.push_back("r_foot_upper_left_link");
