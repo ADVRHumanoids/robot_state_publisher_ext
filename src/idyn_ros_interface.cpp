@@ -227,7 +227,6 @@ void idyn_ros_interface::fillKinematicChainConfig(const kinematic_chain &kc,
 void idyn_ros_interface::publishCoMtf(const ros::Time &t)
 {
     yarp::sig::Vector CoM( robot.iDyn3_model.getCOM());
-                           //idynutils.iDyn3_model.getLinkIndex(reference_frame_CoM)) );
 
     tf::Transform CoM_transform;
     CoM_transform.setIdentity();
@@ -283,9 +282,37 @@ void idyn_ros_interface::publishWorld(const ros::Time &t)
 
 void idyn_ros_interface::publishConvexHull(const ros::Time& t)
 {
+    std::list<std::string> links_in_contact;
+    //if the robot is in double stance phase of single stance with the left foot then
+    if(_ft_sensors[0].forces[2] > 1.0 && _ft_sensors[1].forces[2] > 1.0){
+        links_in_contact.push_back("l_foot_lower_left_link");
+        links_in_contact.push_back("l_foot_lower_right_link");
+        links_in_contact.push_back("l_foot_upper_left_link");
+        links_in_contact.push_back("l_foot_upper_right_link");
+        links_in_contact.push_back("r_foot_lower_left_link");
+        links_in_contact.push_back("r_foot_lower_right_link");
+        links_in_contact.push_back("r_foot_upper_left_link");
+        links_in_contact.push_back("r_foot_upper_right_link");}
+    //if the robot is in single stance with the left foot then
+    else if(_ft_sensors[0].forces[2] > 1.0){
+        links_in_contact.push_back("l_foot_lower_left_link");
+        links_in_contact.push_back("l_foot_lower_right_link");
+        links_in_contact.push_back("l_foot_upper_left_link");
+        links_in_contact.push_back("l_foot_upper_right_link");}
+    //if the robot is in single stance with the right foot then
+    else if(_ft_sensors[1].forces[2] > 1.0){
+        links_in_contact.push_back("r_foot_lower_left_link");
+        links_in_contact.push_back("r_foot_lower_right_link");
+        links_in_contact.push_back("r_foot_upper_left_link");
+        links_in_contact.push_back("r_foot_upper_right_link");}
+    //else we don't do anything since we assume the robot fell
+
+    if(!links_in_contact.empty())
+        robot.setLinksInContact(links_in_contact);
+
     std::list<KDL::Vector> points;
     std::vector<KDL::Vector> ch;
-    idynutils::convex_hull::getSupportPolygonPoints(robot,points);
+    robot.getSupportPolygonPoints(points);
     if(convex_hull.getConvexHull(points,ch)) {
         yarp::sig::Vector CoM( robot.iDyn3_model.getCOM());
         visualization_msgs::Marker ch_marker;
