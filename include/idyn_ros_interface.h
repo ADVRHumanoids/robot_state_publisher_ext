@@ -28,47 +28,48 @@ public:
         ros::Subscriber subscribers;
         yarp::sig::Vector forces;
         yarp::sig::Vector torques;
+        std::list<yarp::sig::Vector> forces_window;
+        std::list<yarp::sig::Vector> torques_window;
 
     private:
         unsigned int _buffer_size;
-        std::list<yarp::sig::Vector> _zmp_average;
 
-    public: yarp::sig::Vector averageZMP(const yarp::sig::Vector& last_computed_zmp)
+    public: yarp::sig::Vector averageVal(const yarp::sig::Vector& new_val, std::list<yarp::sig::Vector>& window)
         {
             if(_buffer_size == 0)
                 _buffer_size = 1;
 
-            if(_zmp_average.size() == _buffer_size)
-                _zmp_average.pop_front();
-            _zmp_average.push_back(last_computed_zmp);
+            if(window.size() == _buffer_size)
+                window.pop_front();
+            window.push_back(new_val);
 
-            yarp::sig::Vector zmp_av(3, 0.0);
-            for(std::list<yarp::sig::Vector>::iterator it = _zmp_average.begin();
-                it != _zmp_average.end(); it++){
-                yarp::sig::Vector zmp_i = *it;
-                zmp_av[0] += zmp_i[0];
-                zmp_av[1] += zmp_i[1];}
-            zmp_av[0] = zmp_av[0]/(double)_buffer_size;
-            zmp_av[1] = zmp_av[1]/(double)_buffer_size;
-            zmp_av[2] = zmp[2];
-            return zmp_av;
+            yarp::sig::Vector average(3, 0.0);
+            for(std::list<yarp::sig::Vector>::iterator it = window.begin(); it != window.end(); it++){
+                yarp::sig::Vector val_i = *it;
+                average[0] += val_i[0];
+                average[1] += val_i[1];
+                average[2] += val_i[2];}
+            average[0] = average[0]/(double)_buffer_size;
+            average[1] = average[1]/(double)_buffer_size;
+            average[2] = average[2]/(double)_buffer_size;
+            return average;
         }
 
-    public: yarp::sig::Vector getAverageZMP()
+    public: yarp::sig::Vector getAveragedVal(const std::list<yarp::sig::Vector>& window)
         {
             if(_buffer_size == 0)
                 _buffer_size = 1;
 
-            yarp::sig::Vector zmp_av(3, 0.0);
-            for(std::list<yarp::sig::Vector>::iterator it = _zmp_average.begin();
-                it != _zmp_average.end(); it++){
-                yarp::sig::Vector zmp_i = *it;
-                zmp_av[0] += zmp_i[0];
-                zmp_av[1] += zmp_i[1];}
-            zmp_av[0] = zmp_av[0]/(double)_buffer_size;
-            zmp_av[1] = zmp_av[1]/(double)_buffer_size;
-            zmp_av[2] = zmp[2];
-            return zmp_av;
+            yarp::sig::Vector average(3, 0.0);
+            for(std::list<yarp::sig::Vector>::const_iterator it = window.begin(); it != window.end(); it++){
+                yarp::sig::Vector val_i = *it;
+                average[0] += val_i[0];
+                average[1] += val_i[1];
+                average[2] += val_i[2];}
+            average[0] = average[0]/(double)_buffer_size;
+            average[1] = average[1]/(double)_buffer_size;
+            average[2] = average[2]/(double)_buffer_size;
+            return average;
         }
     };
 

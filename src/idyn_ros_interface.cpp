@@ -2,7 +2,7 @@
 #include <tf/transform_datatypes.h>
 #include <kdl_conversions/kdl_msg.h>
 
-#define FT_SWITCHING_TH 0.0
+#define FT_SWITCHING_TH 10.0
 
 using namespace iCub::iDynTree;
 
@@ -28,7 +28,7 @@ idyn_ros_interface::idyn_ros_interface(const std::string &robot_name,
     _vis_pub = _n.advertise<visualization_msgs::Marker>( marker_viz_name, 0 );
 
     if(!(ft_frames.getType() == XmlRpc::XmlRpcValue::TypeInvalid)){
-        ft_sensor ft(10);
+        ft_sensor ft(30);
         for(unsigned int i = 0; i < ft_frames.size(); ++i){
             ft.ft_frame = std::string(ft_frames[i]);
             ft.forces = yarp::sig::Vector(3, 0.0);
@@ -66,9 +66,8 @@ void idyn_ros_interface::updateIdynCallBack(const sensor_msgs::JointState &msg)
     fillKinematicChainConfig(robot.right_leg, joint_name_value_map);
     fillKinematicChainConfig(robot.torso, joint_name_value_map);
 
-    if(_ft_sensors.empty()){
-        yarp::sig::Vector foo(_q.size(), 0.0);
-        robot.updateiDyn3Model(_q, foo, foo, true);}
+    yarp::sig::Vector foo(_q.size(), 0.0);
+    robot.updateiDyn3Model(_q, foo, foo, true);
 }
 
 void idyn_ros_interface::updateFromFTSensor(const geometry_msgs::WrenchStamped &msg)
@@ -85,17 +84,19 @@ void idyn_ros_interface::updateFromFTSensor(const geometry_msgs::WrenchStamped &
                 _ft_sensors[i].torques[0] = msg.wrench.torque.x;
                 _ft_sensors[i].torques[1] = msg.wrench.torque.y;
                 _ft_sensors[i].torques[2] = msg.wrench.torque.z;
+
+                _ft_sensors[i].averageVal(_ft_sensors[i].forces, _ft_sensors[i].forces_window);
+                _ft_sensors[i].averageVal(_ft_sensors[i].torques, _ft_sensors[i].torques_window);
             }
         }
 
-        //if the robot is in double stance phase of single stance with the left foot then
-        if(_ft_sensors[0].forces[2] > FT_SWITCHING_TH && _ft_sensors[1].forces[2] > FT_SWITCHING_TH){
+        //if the robot is in double stance phase or single stance with the left foot then
+        if((_ft_sensors[0].getAveragedVal(_ft_sensors[0].forces_window)[2] > FT_SWITCHING_TH &&
+            _ft_sensors[1].getAveragedVal(_ft_sensors[1].forces_window)[2] > FT_SWITCHING_TH) ||
+            _ft_sensors[1].getAveragedVal(_ft_sensors[0].forces_window)[2] > FT_SWITCHING_TH){
             robot.switchAnchor(_ft_sensors[0].zmp_frame);}
-        //if the robot is in single stance with the left foot then
-        else if(_ft_sensors[0].forces[2] > FT_SWITCHING_TH){
-            robot.switchAnchor(_ft_sensors[0].zmp_frame);}
-        //if the robot is in single stance with the right foot then
-        else if(_ft_sensors[1].forces[2] > FT_SWITCHING_TH){
+        //else if the robot is in single stance with the right foot then
+        else if(_ft_sensors[1].getAveragedVal(_ft_sensors[1].forces_window)[2] > FT_SWITCHING_TH){
             robot.switchAnchor(_ft_sensors[1].zmp_frame);}
         //else we don't do anything since we assume the robot fell
 
@@ -110,7 +111,9 @@ void idyn_ros_interface::updateFromFTSensor(const geometry_msgs::WrenchStamped &
                             robot.iDyn3_model.getLinkIndex(_ft_sensors[i].zmp_frame));
             double d = fabs(sensor_to_sole(2,3));
 
-            _ft_sensors[i].zmp = cartesian_utils::computeFootZMP(_ft_sensors[i].forces, _ft_sensors[i].torques, d, 1.0);
+            _ft_sensors[i].zmp = cartesian_utils::computeFootZMP(
+                        _ft_sensors[i].getAveragedVal(_ft_sensors[i].forces_window),
+                        _ft_sensors[i].getAveragedVal(_ft_sensors[i].torques_window), d, FT_SWITCHING_TH);
         }
     }
 }
@@ -120,34 +123,33 @@ void idyn_ros_interface::publishZMPs(const ros::Time& t)
     if(!_ft_sensors.empty()){
         visualization_msgs::Marker ZMP_marker;
 
-        for(unsigned int i = 0; i < _ft_sensors.size(); ++i)
-        {
-            ZMP_marker.header.frame_id = tf::resolve(_tf_prefix, _ft_sensors[i].ft_frame);
-            ZMP_marker.header.stamp = t;
-            ZMP_marker.ns = tf::resolve(_tf_prefix, "ZMP_"+_ft_sensors[i].ft_frame);
-            ZMP_marker.id = 2+i;
-            ZMP_marker.type = visualization_msgs::Marker::SPHERE;
-            ZMP_marker.action = visualization_msgs::Marker::ADD;
+//        for(unsigned int i = 0; i < _ft_sensors.size(); ++i)
+//        {
+//            ZMP_marker.header.frame_id = tf::resolve(_tf_prefix, _ft_sensors[i].ft_frame);
+//            ZMP_marker.header.stamp = t;
+//            ZMP_marker.ns = tf::resolve(_tf_prefix, "ZMP_"+_ft_sensors[i].ft_frame);
+//            ZMP_marker.id = 2+i;
+//            ZMP_marker.type = visualization_msgs::Marker::SPHERE;
+//            ZMP_marker.action = visualization_msgs::Marker::ADD;
 
-            ZMP_marker.pose.orientation.x = 0.0;
-            ZMP_marker.pose.orientation.y = 0.0;
-            ZMP_marker.pose.orientation.z = 0.0;
-            ZMP_marker.pose.orientation.w = 1.0;
-            yarp::sig::Vector zmp = _ft_sensors[i].averageZMP(_ft_sensors[i].zmp);
-            ZMP_marker.pose.position.x = zmp[0];
-            ZMP_marker.pose.position.y = zmp[1];
-            ZMP_marker.pose.position.z = zmp[2];
+//            ZMP_marker.pose.orientation.x = 0.0;
+//            ZMP_marker.pose.orientation.y = 0.0;
+//            ZMP_marker.pose.orientation.z = 0.0;
+//            ZMP_marker.pose.orientation.w = 1.0;
+//            ZMP_marker.pose.position.x = _ft_sensors[i].zmp[0];
+//            ZMP_marker.pose.position.y = _ft_sensors[i].zmp[1];
+//            ZMP_marker.pose.position.z = _ft_sensors[i].zmp[2];
 
-            ZMP_marker.color.a = 1.0;
-            ZMP_marker.color.r = 0.0;
-            ZMP_marker.color.g = 1.0;
-            ZMP_marker.color.b = 1.0;
+//            ZMP_marker.color.a = 1.0;
+//            ZMP_marker.color.r = 0.0;
+//            ZMP_marker.color.g = 1.0;
+//            ZMP_marker.color.b = 1.0;
 
-            ZMP_marker.scale.x = 0.015;
-            ZMP_marker.scale.y = 0.015;
-            ZMP_marker.scale.z = 0.015;
-            _vis_pub.publish(ZMP_marker);
-        }
+//            ZMP_marker.scale.x = 0.015;
+//            ZMP_marker.scale.y = 0.015;
+//            ZMP_marker.scale.z = 0.015;
+//            _vis_pub.publish(ZMP_marker);
+//        }
 
         // Here we compute the ZMP frame of ref:
         std::string child_frame_id = "";
@@ -160,30 +162,30 @@ void idyn_ros_interface::publishZMPs(const ros::Time& t)
                             robot.iDyn3_model.getLinkIndex(_ft_sensors[1].ft_frame));
 
             KDL::Frame ZMPR_in_l_leg_ft_frame; ZMPR_in_l_leg_ft_frame = ZMPR_in_l_leg_ft_frame.Identity();
-            ZMPR_in_l_leg_ft_frame.p[0] = _ft_sensors[1].getAverageZMP()[0];
-            ZMPR_in_l_leg_ft_frame.p[1] = _ft_sensors[1].getAverageZMP()[1];
-            ZMPR_in_l_leg_ft_frame.p[2] = _ft_sensors[1].getAverageZMP()[2];
+            ZMPR_in_l_leg_ft_frame.p[0] = _ft_sensors[1].zmp[0];
+            ZMPR_in_l_leg_ft_frame.p[1] = _ft_sensors[1].zmp[1];
+            ZMPR_in_l_leg_ft_frame.p[2] = _ft_sensors[1].zmp[2];
             ZMPR_in_l_leg_ft_frame = ft1_to_ft2 * ZMPR_in_l_leg_ft_frame;
 
             yarp::sig::Vector ZMPL(3,0.0);
-            ZMPL[0] = _ft_sensors[0].getAverageZMP()[0]; ZMPL[1] = _ft_sensors[0].getAverageZMP()[1]; ZMPL[2] = _ft_sensors[0].getAverageZMP()[2];
+            ZMPL[0] = _ft_sensors[0].zmp[0]; ZMPL[1] = _ft_sensors[0].zmp[1]; ZMPL[2] = _ft_sensors[0].zmp[2];
             yarp::sig::Vector ZMPR(3,0.0);
             ZMPR[0] = ZMPR_in_l_leg_ft_frame.p.x(); ZMPR[1] = ZMPR_in_l_leg_ft_frame.p.y(); ZMPR[2] = ZMPR_in_l_leg_ft_frame.p.z();
-            ZMP = cartesian_utils::computeZMP(_ft_sensors[0].forces[2], _ft_sensors[1].forces[2], ZMPL, ZMPR, 1.0);
+            ZMP = cartesian_utils::computeZMP(_ft_sensors[0].forces[2], _ft_sensors[1].forces[2],
+                    ZMPL, ZMPR, FT_SWITCHING_TH);
 
             child_frame_id = tf::resolve(_tf_prefix, _ft_sensors[0].ft_frame);
         }
         // if only left foot is in the ground we use l_leg_ft as reference frame
         else if(_ft_sensors[0].forces[2] > FT_SWITCHING_TH)
         {
-            ZMP[0] = _ft_sensors[0].getAverageZMP()[0]; ZMP[1] = _ft_sensors[0].getAverageZMP()[1]; ZMP[2] = _ft_sensors[0].getAverageZMP()[2];
+            ZMP[0] = _ft_sensors[0].zmp[0]; ZMP[1] = _ft_sensors[0].zmp[1]; ZMP[2] = _ft_sensors[0].zmp[2];
             child_frame_id = tf::resolve(_tf_prefix, _ft_sensors[0].ft_frame);
         }
         // if only right foot is in the ground we use r_leg_ft as reference frame
         else if(_ft_sensors[1].forces[2] > FT_SWITCHING_TH)
         {
-            ZMP[0] = _ft_sensors[1].getAverageZMP()[0]; ZMP[1] = _ft_sensors[1].getAverageZMP()[1]; ZMP[2] = _ft_sensors[1].getAverageZMP()[2];
-
+            ZMP[0] = _ft_sensors[1].zmp[0]; ZMP[1] = _ft_sensors[1].zmp[1]; ZMP[2] = _ft_sensors[1].zmp[2];
             child_frame_id = tf::resolve(_tf_prefix, _ft_sensors[1].ft_frame);
         }
         // probably the robot is not in contact with the feet so we assume it fell and we return
@@ -284,7 +286,8 @@ void idyn_ros_interface::publishConvexHull(const ros::Time& t)
 {
     std::list<std::string> links_in_contact;
     //if the robot is in double stance phase of single stance with the left foot then
-    if(_ft_sensors[0].forces[2] > FT_SWITCHING_TH && _ft_sensors[1].forces[2] > FT_SWITCHING_TH){
+    if(_ft_sensors[0].getAveragedVal(_ft_sensors[0].forces_window)[2] > FT_SWITCHING_TH &&
+       _ft_sensors[1].getAveragedVal(_ft_sensors[1].forces_window)[2] > FT_SWITCHING_TH){
         links_in_contact.push_back("l_foot_lower_left_link");
         links_in_contact.push_back("l_foot_lower_right_link");
         links_in_contact.push_back("l_foot_upper_left_link");
@@ -294,13 +297,13 @@ void idyn_ros_interface::publishConvexHull(const ros::Time& t)
         links_in_contact.push_back("r_foot_upper_left_link");
         links_in_contact.push_back("r_foot_upper_right_link");}
     //if the robot is in single stance with the left foot then
-    else if(_ft_sensors[0].forces[2] > FT_SWITCHING_TH){
+    else if(_ft_sensors[0].getAveragedVal(_ft_sensors[0].forces_window)[2] > FT_SWITCHING_TH){
         links_in_contact.push_back("l_foot_lower_left_link");
         links_in_contact.push_back("l_foot_lower_right_link");
         links_in_contact.push_back("l_foot_upper_left_link");
         links_in_contact.push_back("l_foot_upper_right_link");}
     //if the robot is in single stance with the right foot then
-    else if(_ft_sensors[1].forces[2] > FT_SWITCHING_TH){
+    else if(_ft_sensors[1].getAveragedVal(_ft_sensors[1].forces_window)[2] > FT_SWITCHING_TH){
         links_in_contact.push_back("r_foot_lower_left_link");
         links_in_contact.push_back("r_foot_lower_right_link");
         links_in_contact.push_back("r_foot_upper_left_link");
@@ -327,13 +330,12 @@ void idyn_ros_interface::publishConvexHull(const ros::Time& t)
         ch_marker.action = visualization_msgs::Marker::ADD;
 
         geometry_msgs::Point p;
-        for(std::vector<KDL::Vector>::iterator i =ch.begin(); i != ch.end(); ++i)
-        {
+        for(std::vector<KDL::Vector>::iterator i =ch.begin(); i != ch.end(); ++i){
             p.x = i->x();
             p.y = i->y();
             p.z = i->z()-CoM[2];
-            ch_marker.points.push_back(p);
-        }
+            ch_marker.points.push_back(p);}
+
         p.x = ch.begin()->x();
         p.y = ch.begin()->y();
         p.z = ch.begin()->z()-CoM[2];
