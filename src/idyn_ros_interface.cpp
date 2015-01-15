@@ -2,7 +2,7 @@
 #include <tf/transform_datatypes.h>
 #include <kdl_conversions/kdl_msg.h>
 
-#define FT_SWITCHING_TH 10.0
+#define FT_SWITCHING_TH 40.0
 
 using namespace iCub::iDynTree;
 
@@ -28,7 +28,7 @@ idyn_ros_interface::idyn_ros_interface(const std::string &robot_name,
     _vis_pub = _n.advertise<visualization_msgs::Marker>( marker_viz_name, 0 );
 
     if(!(ft_frames.getType() == XmlRpc::XmlRpcValue::TypeInvalid)){
-        ft_sensor ft(30);
+        ft_sensor ft(10);
         for(unsigned int i = 0; i < ft_frames.size(); ++i){
             ft.ft_frame = std::string(ft_frames[i]);
             ft.forces = yarp::sig::Vector(3, 0.0);
