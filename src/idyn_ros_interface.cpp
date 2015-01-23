@@ -22,6 +22,7 @@ idyn_ros_interface::idyn_ros_interface(const std::string &robot_name,
     _tf_prefix(tf_prefix)
 {
     _q_subs = _n.subscribe("/joint_states", 100, &idyn_ros_interface::updateIdynCallBack, this);
+    _world_subs = _n.subscribe("/anchor_to_world_pose", 100, &idyn_ros_interface::updateNewWorld, this);
 
 
     std::string marker_viz_name = tf::resolve(_tf_prefix, "robot_state_publisher_ext_viz");
@@ -46,7 +47,6 @@ idyn_ros_interface::idyn_ros_interface(const std::string &robot_name,
     }
 
     robot.updateiDyn3Model(_q, _q, _q, true);
-
 }
 
 idyn_ros_interface::~idyn_ros_interface()
@@ -68,6 +68,20 @@ void idyn_ros_interface::updateIdynCallBack(const sensor_msgs::JointState &msg)
 
     yarp::sig::Vector foo(_q.size(), 0.0);
     robot.updateiDyn3Model(_q, foo, foo, true);
+}
+
+void idyn_ros_interface::updateNewWorld(const geometry_msgs::TransformStamped &msg)
+{
+    if(robot.switchAnchor(msg.header.frame_id) && msg.child_frame_id == "world"){
+        KDL::Frame anchor_T_world;
+        tf::transformMsgToKDL(msg.transform, anchor_T_world);
+        robot.setAnchor_T_World(anchor_T_world);
+        ROS_WARN("Set anchor in link %c", msg.header.frame_id.c_str());
+        ROS_WARN("Set Transformation from anchor to world as:");
+        cartesian_utils::printKDLFrame(anchor_T_world);
+    }
+    else
+        ROS_ERROR("WRONG ANCHOR FRAME!");
 }
 
 void idyn_ros_interface::updateFromFTSensor(const geometry_msgs::WrenchStamped &msg)
