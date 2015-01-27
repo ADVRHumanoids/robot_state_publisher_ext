@@ -298,70 +298,72 @@ void idyn_ros_interface::publishWorld(const ros::Time &t)
 
 void idyn_ros_interface::publishConvexHull(const ros::Time& t)
 {
-    std::list<std::string> links_in_contact;
-    //if the robot is in double stance phase of single stance with the left foot then
-    if(_ft_sensors[0].getAveragedVal(_ft_sensors[0].forces_window)[2] > FT_SWITCHING_TH &&
-       _ft_sensors[1].getAveragedVal(_ft_sensors[1].forces_window)[2] > FT_SWITCHING_TH){
-        links_in_contact.push_back("l_foot_lower_left_link");
-        links_in_contact.push_back("l_foot_lower_right_link");
-        links_in_contact.push_back("l_foot_upper_left_link");
-        links_in_contact.push_back("l_foot_upper_right_link");
-        links_in_contact.push_back("r_foot_lower_left_link");
-        links_in_contact.push_back("r_foot_lower_right_link");
-        links_in_contact.push_back("r_foot_upper_left_link");
-        links_in_contact.push_back("r_foot_upper_right_link");}
-    //if the robot is in single stance with the left foot then
-    else if(_ft_sensors[0].getAveragedVal(_ft_sensors[0].forces_window)[2] > FT_SWITCHING_TH){
-        links_in_contact.push_back("l_foot_lower_left_link");
-        links_in_contact.push_back("l_foot_lower_right_link");
-        links_in_contact.push_back("l_foot_upper_left_link");
-        links_in_contact.push_back("l_foot_upper_right_link");}
-    //if the robot is in single stance with the right foot then
-    else if(_ft_sensors[1].getAveragedVal(_ft_sensors[1].forces_window)[2] > FT_SWITCHING_TH){
-        links_in_contact.push_back("r_foot_lower_left_link");
-        links_in_contact.push_back("r_foot_lower_right_link");
-        links_in_contact.push_back("r_foot_upper_left_link");
-        links_in_contact.push_back("r_foot_upper_right_link");}
-    //else we don't do anything since we assume the robot fell
+    if(!_ft_sensors.empty()){
+        std::list<std::string> links_in_contact;
+        //if the robot is in double stance phase of single stance with the left foot then
+        if(_ft_sensors[0].getAveragedVal(_ft_sensors[0].forces_window)[2] > FT_SWITCHING_TH &&
+           _ft_sensors[1].getAveragedVal(_ft_sensors[1].forces_window)[2] > FT_SWITCHING_TH){
+            links_in_contact.push_back("l_foot_lower_left_link");
+            links_in_contact.push_back("l_foot_lower_right_link");
+            links_in_contact.push_back("l_foot_upper_left_link");
+            links_in_contact.push_back("l_foot_upper_right_link");
+            links_in_contact.push_back("r_foot_lower_left_link");
+            links_in_contact.push_back("r_foot_lower_right_link");
+            links_in_contact.push_back("r_foot_upper_left_link");
+            links_in_contact.push_back("r_foot_upper_right_link");}
+        //if the robot is in single stance with the left foot then
+        else if(_ft_sensors[0].getAveragedVal(_ft_sensors[0].forces_window)[2] > FT_SWITCHING_TH){
+            links_in_contact.push_back("l_foot_lower_left_link");
+            links_in_contact.push_back("l_foot_lower_right_link");
+            links_in_contact.push_back("l_foot_upper_left_link");
+            links_in_contact.push_back("l_foot_upper_right_link");}
+        //if the robot is in single stance with the right foot then
+        else if(_ft_sensors[1].getAveragedVal(_ft_sensors[1].forces_window)[2] > FT_SWITCHING_TH){
+            links_in_contact.push_back("r_foot_lower_left_link");
+            links_in_contact.push_back("r_foot_lower_right_link");
+            links_in_contact.push_back("r_foot_upper_left_link");
+            links_in_contact.push_back("r_foot_upper_right_link");}
+        //else we don't do anything since we assume the robot fell
 
-    if(!links_in_contact.empty())
-        robot.setLinksInContact(links_in_contact);
+        if(!links_in_contact.empty())
+            robot.setLinksInContact(links_in_contact);
 
-    std::list<KDL::Vector> points;
-    std::vector<KDL::Vector> ch;
-    robot.getSupportPolygonPoints(points);
-    if(convex_hull.getConvexHull(points,ch)) {
-        yarp::sig::Vector CoM( robot.iDyn3_model.getCOM());
-        visualization_msgs::Marker ch_marker;
+        std::list<KDL::Vector> points;
+        std::vector<KDL::Vector> ch;
+        robot.getSupportPolygonPoints(points);
+        if(convex_hull.getConvexHull(points,ch)) {
+            yarp::sig::Vector CoM( robot.iDyn3_model.getCOM());
+            visualization_msgs::Marker ch_marker;
 
-        std::string frame_id = tf::resolve(_tf_prefix, "CoM");
+            std::string frame_id = tf::resolve(_tf_prefix, "CoM");
 
-        ch_marker.header.frame_id = frame_id;
-        ch_marker.header.stamp = t;
-        ch_marker.ns = tf::resolve(_tf_prefix, "convex_hull");
-        ch_marker.id = 0;
-        ch_marker.type = visualization_msgs::Marker::LINE_STRIP;
-        ch_marker.action = visualization_msgs::Marker::ADD;
+            ch_marker.header.frame_id = frame_id;
+            ch_marker.header.stamp = t;
+            ch_marker.ns = tf::resolve(_tf_prefix, "convex_hull");
+            ch_marker.id = 0;
+            ch_marker.type = visualization_msgs::Marker::LINE_STRIP;
+            ch_marker.action = visualization_msgs::Marker::ADD;
 
-        geometry_msgs::Point p;
-        for(std::vector<KDL::Vector>::iterator i =ch.begin(); i != ch.end(); ++i){
-            p.x = i->x();
-            p.y = i->y();
-            p.z = i->z()-CoM[2];
-            ch_marker.points.push_back(p);}
+            geometry_msgs::Point p;
+            for(std::vector<KDL::Vector>::iterator i =ch.begin(); i != ch.end(); ++i){
+                p.x = i->x();
+                p.y = i->y();
+                p.z = i->z()-CoM[2];
+                ch_marker.points.push_back(p);}
 
-        p.x = ch.begin()->x();
-        p.y = ch.begin()->y();
-        p.z = ch.begin()->z()-CoM[2];
-        ch_marker.points.push_back(p);
+            p.x = ch.begin()->x();
+            p.y = ch.begin()->y();
+            p.z = ch.begin()->z()-CoM[2];
+            ch_marker.points.push_back(p);
 
-        ch_marker.color.a = 1.0;
-        ch_marker.color.r = 0.0;
-        ch_marker.color.g = 1.0;
-        ch_marker.color.b = 0.0;
+            ch_marker.color.a = 1.0;
+            ch_marker.color.r = 0.0;
+            ch_marker.color.g = 1.0;
+            ch_marker.color.b = 0.0;
 
-        ch_marker.scale.x = 0.01;
+            ch_marker.scale.x = 0.01;
 
-        _vis_pub.publish(ch_marker);
+            _vis_pub.publish(ch_marker);
+        }
     }
 }
