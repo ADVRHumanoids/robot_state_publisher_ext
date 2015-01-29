@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   roslib
   tf
   kdl_conversions
+  message_generation
 )
 
 ## System dependencies are found with CMake's conventions
@@ -63,11 +64,10 @@ link_directories(${ROS_LIB_FOLDER})
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
+ add_message_files(
+   FILES
+   StringArray.msg
+ )
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -84,10 +84,10 @@ link_directories(${ROS_LIB_FOLDER})
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   geometry_msgs
-# )
+ generate_messages(
+   DEPENDENCIES
+   geometry_msgs
+ )
 
 ###################################
 ## catkin specific configuration ##
@@ -101,7 +101,7 @@ link_directories(${ROS_LIB_FOLDER})
 catkin_package(
  INCLUDE_DIRS include
  LIBRARIES idyn_ros_interface
- CATKIN_DEPENDS geometry_msgs roscpp rospy roslib tf
+ CATKIN_DEPENDS message_runtime geometry_msgs roscpp rospy roslib tf 
  DEPENDS system_lib TinyXML
 )
 

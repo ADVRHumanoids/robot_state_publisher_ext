@@ -13,6 +13,7 @@
 #include <geometry_msgs/WrenchStamped.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <numeric>
+#include <robot_state_publisher_ext/StringArray.h>
 
 class idyn_ros_interface
 {
@@ -106,9 +107,13 @@ private:
     std::string reference_frame_CoM;
 
     ros::Subscriber _world_subs;
+
+    std::list<std::string> _links_in_contact;
+    ros::Subscriber _links_in_contact_subs;
     
     void updateIdynCallBack(const sensor_msgs::JointState &msg);
     void updateNewWorld(const geometry_msgs::TransformStamped &msg);
+    void updateLinksInContactCallBack(const robot_state_publisher_ext::StringArray &msg);
     void updateFromFTSensor(const geometry_msgs::WrenchStamped &msg);
     void fillKinematicChainConfig(const kinematic_chain& kc,
                                   std::map<std::string, double>& joint_names_values);

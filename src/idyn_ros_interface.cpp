@@ -23,6 +23,7 @@ idyn_ros_interface::idyn_ros_interface(const std::string &robot_name,
 {
     _q_subs = _n.subscribe("/joint_states", 100, &idyn_ros_interface::updateIdynCallBack, this);
     _world_subs = _n.subscribe("/anchor_to_world_pose", 100, &idyn_ros_interface::updateNewWorld, this);
+    _links_in_contact_subs = _n.subscribe("/links_in_contact", 100, &idyn_ros_interface::updateLinksInContactCallBack, this);
 
 
     std::string marker_viz_name = tf::resolve(_tf_prefix, "robot_state_publisher_ext_viz");
@@ -45,6 +46,16 @@ idyn_ros_interface::idyn_ros_interface(const std::string &robot_name,
             _ft_sensors.push_back(ft);
         }
     }
+
+    // We start considering both the feet in the ground
+    _links_in_contact.push_back("l_foot_lower_left_link");
+    _links_in_contact.push_back("l_foot_lower_right_link");
+    _links_in_contact.push_back("l_foot_upper_left_link");
+    _links_in_contact.push_back("l_foot_upper_right_link");
+    _links_in_contact.push_back("r_foot_lower_left_link");
+    _links_in_contact.push_back("r_foot_lower_right_link");
+    _links_in_contact.push_back("r_foot_upper_left_link");
+    _links_in_contact.push_back("r_foot_upper_right_link");
 
     robot.updateiDyn3Model(_q, _q, _q, true);
 }
@@ -76,7 +87,7 @@ void idyn_ros_interface::updateNewWorld(const geometry_msgs::TransformStamped &m
         KDL::Frame anchor_T_world;
         tf::transformMsgToKDL(msg.transform, anchor_T_world);
         robot.setAnchor_T_World(anchor_T_world);
-        ROS_WARN("Set anchor in link %c", msg.header.frame_id.c_str());
+        ROS_WARN("Set anchor in link %s", msg.header.frame_id.c_str());
         ROS_WARN("Set Transformation from anchor to world as:");
         cartesian_utils::printKDLFrame(anchor_T_world);
     }
@@ -104,16 +115,6 @@ void idyn_ros_interface::updateFromFTSensor(const geometry_msgs::WrenchStamped &
             }
         }
 
-        //if the robot is in double stance phase or single stance with the left foot then
-        if((_ft_sensors[0].getAveragedVal(_ft_sensors[0].forces_window)[2] > FT_SWITCHING_TH &&
-            _ft_sensors[1].getAveragedVal(_ft_sensors[1].forces_window)[2] > FT_SWITCHING_TH) ||
-            _ft_sensors[1].getAveragedVal(_ft_sensors[0].forces_window)[2] > FT_SWITCHING_TH){
-            robot.switchAnchor(_ft_sensors[0].zmp_frame);}
-        //else if the robot is in single stance with the right foot then
-        else if(_ft_sensors[1].getAveragedVal(_ft_sensors[1].forces_window)[2] > FT_SWITCHING_TH){
-            robot.switchAnchor(_ft_sensors[1].zmp_frame);}
-        //else we don't do anything since we assume the robot fell
-
         //Update model according to the last reads
         yarp::sig::Vector foo(_q.size(), 0.0);
         robot.updateiDyn3Model(_q, foo, foo, true);
@@ -136,34 +137,6 @@ void idyn_ros_interface::publishZMPs(const ros::Time& t)
 {
     if(!_ft_sensors.empty()){
         visualization_msgs::Marker ZMP_marker;
-
-//        for(unsigned int i = 0; i < _ft_sensors.size(); ++i)
-//        {
-//            ZMP_marker.header.frame_id = tf::resolve(_tf_prefix, _ft_sensors[i].ft_frame);
-//            ZMP_marker.header.stamp = t;
-//            ZMP_marker.ns = tf::resolve(_tf_prefix, "ZMP_"+_ft_sensors[i].ft_frame);
-//            ZMP_marker.id = 2+i;
-//            ZMP_marker.type = visualization_msgs::Marker::SPHERE;
-//            ZMP_marker.action = visualization_msgs::Marker::ADD;
-
-//            ZMP_marker.pose.orientation.x = 0.0;
-//            ZMP_marker.pose.orientation.y = 0.0;
-//            ZMP_marker.pose.orientation.z = 0.0;
-//            ZMP_marker.pose.orientation.w = 1.0;
-//            ZMP_marker.pose.position.x = _ft_sensors[i].zmp[0];
-//            ZMP_marker.pose.position.y = _ft_sensors[i].zmp[1];
-//            ZMP_marker.pose.position.z = _ft_sensors[i].zmp[2];
-
-//            ZMP_marker.color.a = 1.0;
-//            ZMP_marker.color.r = 0.0;
-//            ZMP_marker.color.g = 1.0;
-//            ZMP_marker.color.b = 1.0;
-
-//            ZMP_marker.scale.x = 0.015;
-//            ZMP_marker.scale.y = 0.015;
-//            ZMP_marker.scale.z = 0.015;
-//            _vis_pub.publish(ZMP_marker);
-//        }
 
         // Here we compute the ZMP frame of ref:
         std::string child_frame_id = "";
@@ -296,37 +269,28 @@ void idyn_ros_interface::publishWorld(const ros::Time &t)
     _br.sendTransform(tf::StampedTransform(world_T_base_link_tf, t, frame_id, child_frame_id));
 }
 
+void idyn_ros_interface::updateLinksInContactCallBack(const robot_state_publisher_ext::StringArray &msg)
+{
+    std::list<std::string> tmp_str;
+    bool check = true;
+    for(unsigned int i = 0; i < msg.strings.size(); ++i){
+        if(robot.iDyn3_model.getLinkIndex(msg.strings[i]) == -1){
+            check = false;
+            ROS_ERROR("Frame %s does not exist!", msg.strings[i].c_str());
+            break;}
+        else
+            tmp_str.push_back(msg.strings[i]);}
+    if(check){
+        _links_in_contact.clear();
+        _links_in_contact = tmp_str;}
+}
+
 void idyn_ros_interface::publishConvexHull(const ros::Time& t)
 {
     if(!_ft_sensors.empty()){
-        std::list<std::string> links_in_contact;
-        //if the robot is in double stance phase of single stance with the left foot then
-        if(_ft_sensors[0].getAveragedVal(_ft_sensors[0].forces_window)[2] > FT_SWITCHING_TH &&
-           _ft_sensors[1].getAveragedVal(_ft_sensors[1].forces_window)[2] > FT_SWITCHING_TH){
-            links_in_contact.push_back("l_foot_lower_left_link");
-            links_in_contact.push_back("l_foot_lower_right_link");
-            links_in_contact.push_back("l_foot_upper_left_link");
-            links_in_contact.push_back("l_foot_upper_right_link");
-            links_in_contact.push_back("r_foot_lower_left_link");
-            links_in_contact.push_back("r_foot_lower_right_link");
-            links_in_contact.push_back("r_foot_upper_left_link");
-            links_in_contact.push_back("r_foot_upper_right_link");}
-        //if the robot is in single stance with the left foot then
-        else if(_ft_sensors[0].getAveragedVal(_ft_sensors[0].forces_window)[2] > FT_SWITCHING_TH){
-            links_in_contact.push_back("l_foot_lower_left_link");
-            links_in_contact.push_back("l_foot_lower_right_link");
-            links_in_contact.push_back("l_foot_upper_left_link");
-            links_in_contact.push_back("l_foot_upper_right_link");}
-        //if the robot is in single stance with the right foot then
-        else if(_ft_sensors[1].getAveragedVal(_ft_sensors[1].forces_window)[2] > FT_SWITCHING_TH){
-            links_in_contact.push_back("r_foot_lower_left_link");
-            links_in_contact.push_back("r_foot_lower_right_link");
-            links_in_contact.push_back("r_foot_upper_left_link");
-            links_in_contact.push_back("r_foot_upper_right_link");}
-        //else we don't do anything since we assume the robot fell
 
-        if(!links_in_contact.empty())
-            robot.setLinksInContact(links_in_contact);
+        if(!_links_in_contact.empty())
+            robot.setLinksInContact(_links_in_contact);
 
         std::list<KDL::Vector> points;
         std::vector<KDL::Vector> ch;
