@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   roscpp
   rospy
+  std_msgs
   roslib
   tf
   kdl_conversions
@@ -86,6 +87,7 @@ link_directories(${ROS_LIB_FOLDER})
 ## Generate added messages and services with any dependencies listed here
  generate_messages(
    DEPENDENCIES
+   std_msgs
    geometry_msgs
  )
 
@@ -129,7 +131,8 @@ add_executable(robot_state_publisher_ext_node src/main.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
-#add_dependencies(yarp_ros_wrench_imu_publisher_node yarp_ros_wrench_imu_publisher_generate_messages_cpp)
+add_dependencies(idyn_ros_interface robot_state_publisher_ext_generate_messages_cpp)
+add_dependencies(robot_state_publisher_ext_node robot_state_publisher_ext_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(idyn_ros_interface ${drc_shared_LIBRARIES} ${YARP_LIBRARIES} 
