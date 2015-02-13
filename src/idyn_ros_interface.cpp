@@ -294,7 +294,7 @@ void idyn_ros_interface::publishConvexHull(const ros::Time& t)
 
         std::list<KDL::Vector> points;
         std::vector<KDL::Vector> ch;
-        robot.getSupportPolygonPoints(points);
+        robot.getSupportPolygonPoints(points,"COM");
         if(convex_hull.getConvexHull(points,ch)) {
             yarp::sig::Vector CoM( robot.iDyn3_model.getCOM());
             visualization_msgs::Marker ch_marker;
