@@ -15,6 +15,7 @@ idyn_ros_interface::idyn_ros_interface(const std::string &robot_name,
     robot(robot_name, urdf_path, srdf_path),
     _n(),
     _q_subs(),
+    _imu_subs(),
     _br(),
     _lr(),
     _q(robot.iDyn3_model.getNrOfDOFs(), 0.0),
@@ -22,6 +23,7 @@ idyn_ros_interface::idyn_ros_interface(const std::string &robot_name,
     _tf_prefix(tf_prefix)
 {
     _q_subs = _n.subscribe("/joint_states", 100, &idyn_ros_interface::updateIdynCallBack, this);
+    _imu_subs = _n.subscribe("/imu", 100, &idyn_ros_interface::updateIMUCallBack, this);
     _world_subs = _n.subscribe("/anchor_to_world_pose", 100, &idyn_ros_interface::updateNewWorld, this);
     _links_in_contact_subs = _n.subscribe("/links_in_contact", 100, &idyn_ros_interface::updateLinksInContactCallBack, this);
 
@@ -267,6 +269,26 @@ void idyn_ros_interface::publishWorld(const ros::Time &t)
     std::string frame_id = tf::resolve(_tf_prefix, "world");
     std::string child_frame_id = tf::resolve(_tf_prefix, "base_link");
     _br.sendTransform(tf::StampedTransform(world_T_base_link_tf, t, frame_id, child_frame_id));
+}
+
+void idyn_ros_interface::updateIMUCallBack(const sensor_msgs::Imu &msg)
+{
+    KDL::Frame anchor_T_world_kin; anchor_T_world_kin.Identity();
+    std::string anchor_link;
+    if(robot.getWorldPose(anchor_T_world_kin, anchor_link))
+    {
+        KDL::Frame world_T_imu; world_T_imu.Identity();
+        world_T_imu.M = world_T_imu.M.Quaternion(msg.orientation.x, msg.orientation.y, msg.orientation.z ,msg.orientation.w);
+
+        KDL::Frame anchor_T_imu = robot.iDyn3_model.getPositionKDL(
+                    robot.iDyn3_model.getLinkIndex(anchor_link),
+                    robot.iDyn3_model.getLinkIndex(msg.header.frame_id));
+
+        KDL::Frame anchor_T_world = anchor_T_imu*world_T_imu.Inverse();
+        anchor_T_world.p = anchor_T_world_kin.p;
+
+        robot.setAnchor_T_World(anchor_T_world);
+    }
 }
 
 void idyn_ros_interface::updateLinksInContactCallBack(const robot_state_publisher_ext::StringArray &msg)

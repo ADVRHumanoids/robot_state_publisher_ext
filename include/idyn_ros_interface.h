@@ -14,6 +14,7 @@
 #include <geometry_msgs/TransformStamped.h>
 #include <numeric>
 #include <robot_state_publisher_ext/StringArray.h>
+#include <sensor_msgs/Imu.h>
 
 class idyn_ros_interface
 {
@@ -93,6 +94,9 @@ public:
 private:
     ros::NodeHandle _n;
     ros::Subscriber _q_subs;
+
+    ros::Subscriber _imu_subs;
+
     tf::TransformBroadcaster _br;
     tf::TransformListener _lr;
     ros::Publisher _vis_pub;
@@ -111,6 +115,7 @@ private:
     std::list<std::string> _links_in_contact;
     ros::Subscriber _links_in_contact_subs;
     
+    void updateIMUCallBack(const sensor_msgs::Imu &msg);
     void updateIdynCallBack(const sensor_msgs::JointState &msg);
     void updateNewWorld(const geometry_msgs::TransformStamped &msg);
     void updateLinksInContactCallBack(const robot_state_publisher_ext::StringArray &msg);

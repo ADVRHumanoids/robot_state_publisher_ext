@@ -5,6 +5,9 @@
        <param name="robot_name" type="string" value="bigman" />
        <param name="urdf_path" type="string" value="$(find bigman_urdf)/urdf/bigman.urdf" />
        <param name="srdf_path" type="string" value="$(find bigman_srdf)/srdf/bigman.srdf" />
+       <rosparam param="ft_frames">["l_leg_ft", "r_leg_ft"]</rosparam>
+       <rosparam param="ZMP_frames">["l_sole", "r_sole"]</rosparam>
+       <remap from="imu" to="imu_link/imu_sensor"/>
      </node>
      
 
