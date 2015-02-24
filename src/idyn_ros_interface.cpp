@@ -76,6 +76,7 @@ void idyn_ros_interface::updateIdynCallBack(const sensor_msgs::JointState &msg)
     fillKinematicChainConfig(robot.right_arm, joint_name_value_map);
     fillKinematicChainConfig(robot.right_leg, joint_name_value_map);
     fillKinematicChainConfig(robot.torso, joint_name_value_map);
+    fillKinematicChainConfig(robot.head, joint_name_value_map);
 
     yarp::sig::Vector foo(_q.size(), 0.0);
     robot.updateiDyn3Model(_q, foo, foo, true);
