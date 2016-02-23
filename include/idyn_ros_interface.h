@@ -7,6 +7,7 @@
 #include <sensor_msgs/JointState.h>
 #include <tf/transform_broadcaster.h>
 #include <tf/transform_listener.h>
+#include <idynutils/cartesian_utils.h>
 #include <idynutils/convex_hull.h>
 #include <visualization_msgs/Marker.h>
 #include <kdl/frames.hpp>

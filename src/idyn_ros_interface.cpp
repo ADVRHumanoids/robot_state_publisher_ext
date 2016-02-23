@@ -78,6 +78,7 @@ void idyn_ros_interface::updateIdynCallBack(const sensor_msgs::JointState &msg)
     fillKinematicChainConfig(robot.right_arm, joint_name_value_map);
     fillKinematicChainConfig(robot.right_leg, joint_name_value_map);
     fillKinematicChainConfig(robot.torso, joint_name_value_map);
+    fillKinematicChainConfig(robot.head, joint_name_value_map);
 
     yarp::sig::Vector foo(_q.size(), 0.0);
     robot.updateiDyn3Model(_q, foo, foo, true);
@@ -316,7 +317,7 @@ void idyn_ros_interface::publishConvexHull(const ros::Time& t)
 
         std::list<KDL::Vector> points;
         std::vector<KDL::Vector> ch;
-        robot.getSupportPolygonPoints(points);
+        robot.getSupportPolygonPoints(points,"COM");
         if(convex_hull.getConvexHull(points,ch)) {
             yarp::sig::Vector CoM( robot.iDyn3_model.getCOM());
             visualization_msgs::Marker ch_marker;
