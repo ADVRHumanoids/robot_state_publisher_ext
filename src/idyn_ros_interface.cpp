@@ -274,22 +274,11 @@ void idyn_ros_interface::publishWorld(const ros::Time &t)
 
 void idyn_ros_interface::updateIMUCallBack(const sensor_msgs::Imu &msg)
 {
-    KDL::Frame anchor_T_world_kin; anchor_T_world_kin.Identity();
-    std::string anchor_link;
-    if(robot.getWorldPose(anchor_T_world_kin, anchor_link))
-    {
-        KDL::Frame world_T_imu; world_T_imu.Identity();
-        world_T_imu.M = world_T_imu.M.Quaternion(msg.orientation.x, msg.orientation.y, msg.orientation.z ,msg.orientation.w);
-
-        KDL::Frame anchor_T_imu = robot.iDyn3_model.getPositionKDL(
-                    robot.iDyn3_model.getLinkIndex(anchor_link),
-                    robot.iDyn3_model.getLinkIndex(msg.header.frame_id));
-
-        KDL::Frame anchor_T_world = anchor_T_imu*world_T_imu.Inverse();
-        anchor_T_world.p = anchor_T_world_kin.p;
-
-        robot.setAnchor_T_World(anchor_T_world);
-    }
+    KDL::Frame world_T_imu; world_T_imu.Identity();
+    world_T_imu.M = world_T_imu.M.Quaternion(msg.orientation.x, msg.orientation.y, msg.orientation.z ,msg.orientation.w);
+    yarp::sig::Matrix world_R_imu(3,3); world_R_imu.eye();
+    cartesian_utils::fromKDLRotationToYARPMatrix(world_T_imu.M, world_R_imu);
+    robot.setIMUOrientation(world_R_imu, msg.header.frame_id);
 }
 
 void idyn_ros_interface::updateLinksInContactCallBack(const robot_state_publisher_ext::StringArray &msg)
