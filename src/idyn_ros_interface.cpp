@@ -2,6 +2,7 @@
 #include <tf/transform_datatypes.h>
 #include <kdl_conversions/kdl_msg.h>
 
+
 #define FT_SWITCHING_TH 40.0
 
 using namespace iCub::iDynTree;
@@ -11,16 +12,20 @@ idyn_ros_interface::idyn_ros_interface(const std::string &robot_name,
                                        const std::string &srdf_path,
                                        const std::string &tf_prefix,
                                        XmlRpc::XmlRpcValue& ft_frames,
-                                       XmlRpc::XmlRpcValue& ZMP_frames):
+                                       XmlRpc::XmlRpcValue& ZMP_frames,
+                                       const double dT):
     robot(robot_name, urdf_path, srdf_path),
     _n(),
     _q_subs(),
+    _dT(dT),
     _imu_subs(),
     _br(),
     _lr(),
     _q(robot.iDyn3_model.getNrOfDOFs(), 0.0),
+    _q_dot(_q.size(), 0.0),
     reference_frame_CoM("world"),
-    _tf_prefix(tf_prefix)
+    _tf_prefix(tf_prefix),
+    _floating_base_velocity_in_world(yarp::sig::Vector(3, 0.0), boost::accumulators::tag::rolling_mean::window_size = 10)
 {
     _q_subs = _n.subscribe("/joint_states", 100, &idyn_ros_interface::updateIdynCallBack, this);
     _imu_subs = _n.subscribe("/imu", 100, &idyn_ros_interface::updateIMUCallBack, this);
@@ -59,7 +64,7 @@ idyn_ros_interface::idyn_ros_interface(const std::string &robot_name,
     _links_in_contact.push_back("r_foot_upper_left_link");
     _links_in_contact.push_back("r_foot_upper_right_link");
 
-    robot.updateiDyn3Model(_q, _q, _q, true);
+    robot.updateiDyn3Model(_q, _q_dot, _q, true);
 }
 
 idyn_ros_interface::~idyn_ros_interface()
@@ -70,18 +75,20 @@ idyn_ros_interface::~idyn_ros_interface()
 void idyn_ros_interface::updateIdynCallBack(const sensor_msgs::JointState &msg)
 {
     std::map<std::string, double> joint_name_value_map;
-    for(unsigned int i = 0; i < msg.name.size(); ++i)
+    std::map<std::string, double> joint_name_vel_map;
+    for(unsigned int i = 0; i < msg.name.size(); ++i){
         joint_name_value_map[msg.name[i]] = msg.position[i];
+        joint_name_vel_map[msg.name[i]] = msg.velocity[i];}
 
-    fillKinematicChainConfig(robot.left_arm, joint_name_value_map);
-    fillKinematicChainConfig(robot.left_leg, joint_name_value_map);
-    fillKinematicChainConfig(robot.right_arm, joint_name_value_map);
-    fillKinematicChainConfig(robot.right_leg, joint_name_value_map);
-    fillKinematicChainConfig(robot.torso, joint_name_value_map);
-    fillKinematicChainConfig(robot.head, joint_name_value_map);
+    fillKinematicChainConfig(robot.left_arm, joint_name_value_map, joint_name_vel_map);
+    fillKinematicChainConfig(robot.left_leg, joint_name_value_map, joint_name_vel_map);
+    fillKinematicChainConfig(robot.right_arm, joint_name_value_map, joint_name_vel_map);
+    fillKinematicChainConfig(robot.right_leg, joint_name_value_map, joint_name_vel_map);
+    fillKinematicChainConfig(robot.torso, joint_name_value_map, joint_name_vel_map);
+    fillKinematicChainConfig(robot.head, joint_name_value_map, joint_name_vel_map);
 
     yarp::sig::Vector foo(_q.size(), 0.0);
-    robot.updateiDyn3Model(_q, foo, foo, true);
+    robot.updateiDyn3Model(_q, _q_dot, foo, true);
 }
 
 void idyn_ros_interface::updateNewWorld(const geometry_msgs::TransformStamped &msg)
@@ -120,7 +127,7 @@ void idyn_ros_interface::updateFromFTSensor(const geometry_msgs::WrenchStamped &
 
         //Update model according to the last reads
         yarp::sig::Vector foo(_q.size(), 0.0);
-        robot.updateiDyn3Model(_q, foo, foo, true);
+        robot.updateiDyn3Model(_q, _q_dot, foo, true);
 
         for(unsigned int i = 0; i < _ft_sensors.size(); ++i)
         {
@@ -136,6 +143,49 @@ void idyn_ros_interface::updateFromFTSensor(const geometry_msgs::WrenchStamped &
     }
 }
 
+//Note: CP marker is RED
+void idyn_ros_interface::publishCP(const ros::Time &t)
+{
+
+    visualization_msgs::Marker CP_marker;
+
+    std::string child_frame_id = "";
+
+    yarp::sig::Vector com_velocity = robot.iDyn3_model.getVelCOM();
+    yarp::sig::Vector com_pose = robot.iDyn3_model.getCOM();
+
+    yarp::sig::Vector CP = cartesian_utils::computeCapturePoint(
+                boost::accumulators::rolling_mean(_floating_base_velocity_in_world), com_velocity, com_pose);
+
+    child_frame_id = tf::resolve(_tf_prefix, "world");
+
+    CP_marker.header.frame_id = child_frame_id;
+    CP_marker.header.stamp = t;
+    CP_marker.ns = "CP";
+    CP_marker.id = 3+_ft_sensors.size();
+    CP_marker.type = visualization_msgs::Marker::SPHERE;
+    CP_marker.action = visualization_msgs::Marker::ADD;
+
+    CP_marker.pose.orientation.x = 0.0;
+    CP_marker.pose.orientation.y = 0.0;
+    CP_marker.pose.orientation.z = 0.0;
+    CP_marker.pose.orientation.w = 1.0;
+    CP_marker.pose.position.x = CP[0];
+    CP_marker.pose.position.y = CP[1];
+    CP_marker.pose.position.z = CP[2];
+
+    CP_marker.color.a = 1.0;
+    CP_marker.color.r = 1.0;
+    CP_marker.color.g = 0.0;
+    CP_marker.color.b = 0.0;
+
+    CP_marker.scale.x = 0.015;
+    CP_marker.scale.y = 0.015;
+    CP_marker.scale.z = 0.015;
+    _vis_pub.publish(CP_marker);
+}
+
+//Note: ZMP Marker is Azure
 void idyn_ros_interface::publishZMPs(const ros::Time& t)
 {
     if(!_ft_sensors.empty()){
@@ -210,11 +260,15 @@ void idyn_ros_interface::publishZMPs(const ros::Time& t)
 }
 
 void idyn_ros_interface::fillKinematicChainConfig(const kinematic_chain &kc,
-                                                  std::map<std::string, double> &joint_names_values)
+                                                  std::map<std::string, double> &joint_names_values,
+                                                  std::map<std::string, double>& joint_names_vel)
 {
-    for(unsigned int i = 0; i < kc.joint_names.size(); ++i)
+    for(unsigned int i = 0; i < kc.joint_names.size(); ++i){
         _q[kc.joint_numbers[i]] = joint_names_values[kc.joint_names[i]];
+        _q_dot[kc.joint_numbers[i]] = joint_names_vel[kc.joint_names[i]];}
 }
+
+
 
 void idyn_ros_interface::publishCoMtf(const ros::Time &t)
 {
@@ -279,6 +333,12 @@ void idyn_ros_interface::updateIMUCallBack(const sensor_msgs::Imu &msg)
     yarp::sig::Matrix world_R_imu(3,3); world_R_imu.eye();
     cartesian_utils::fromKDLRotationToYARPMatrix(world_T_imu.M, world_R_imu);
     robot.setIMUOrientation(world_R_imu, msg.header.frame_id);
+
+    yarp::sig::Vector linear_acc(3,0.0);
+    linear_acc[0] = msg.linear_acceleration.x;
+    linear_acc[1] = msg.linear_acceleration.y;
+    linear_acc[2] = msg.linear_acceleration.z;
+    _floating_base_velocity_in_world(linear_acc*_dT);
 }
 
 void idyn_ros_interface::updateLinksInContactCallBack(const robot_state_publisher_ext::StringArray &msg)

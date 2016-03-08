@@ -42,12 +42,11 @@ int main(int argc, char **argv)
     std::string tf_prefix;
     n.param("tf_prefix", tf_prefix, std::string(""));
 
-    idyn_ros_interface robot(robot_name, urdf_path, srdf_path, tf_prefix, ft_frames, ZMP_frames);
-
     ROS_INFO("Starting Robot State Publisher Extended Node");
 
     double hz;
     n.param("rate", hz, 50.0);
+    idyn_ros_interface robot(robot_name, urdf_path, srdf_path, tf_prefix, ft_frames, ZMP_frames, 1./hz);
     ros::Rate loop_rate(hz);
     while(ros::ok())
     {
@@ -57,6 +56,7 @@ int main(int argc, char **argv)
         robot.publishCoMtf(t);
         robot.publishConvexHull(t);
         robot.publishZMPs(t);
+        robot.publishCP(t);
 
         ros::spinOnce();
         loop_rate.sleep();

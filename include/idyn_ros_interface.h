@@ -16,6 +16,17 @@
 #include <numeric>
 #include <robot_state_publisher_ext/StringArray.h>
 #include <sensor_msgs/Imu.h>
+#include <boost/utility.hpp>
+#include <boost/accumulators/accumulators.hpp>
+#include <boost/accumulators/statistics/stats.hpp>
+#include <boost/accumulators/statistics/rolling_mean.hpp>
+
+using namespace yarp::math;
+
+yarp::sig::Vector operator/(const yarp::sig::Vector& a, const long unsigned int b)
+{
+    return a*(1.0/double(b));
+}
 
 class idyn_ros_interface
 {
@@ -85,16 +96,19 @@ public:
                        const std::string& srdf_path,
                        const std::string& tf_prefix,
                        XmlRpc::XmlRpcValue& ft_frames,
-                       XmlRpc::XmlRpcValue& ZMP_frames);
+                       XmlRpc::XmlRpcValue& ZMP_frames,
+                       const double dT);
     ~idyn_ros_interface();
 
     void publishCoMtf(const ros::Time& t);
     void publishWorld(const ros::Time& t);
     void publishConvexHull(const ros::Time& t);
     void publishZMPs(const ros::Time& t);
+    void publishCP(const ros::Time& t);
 private:
     ros::NodeHandle _n;
     ros::Subscriber _q_subs;
+    double _dT;
 
     ros::Subscriber _imu_subs;
 
@@ -105,6 +119,7 @@ private:
     std::string _tf_prefix;
 
     yarp::sig::Vector _q;
+    yarp::sig::Vector _q_dot;
 
     std::vector<ft_sensor> _ft_sensors;
 
@@ -115,7 +130,11 @@ private:
 
     std::list<std::string> _links_in_contact;
     ros::Subscriber _links_in_contact_subs;
-    
+
+    boost::accumulators::accumulator_set< yarp::sig::Vector, boost::accumulators::stats<
+        boost::accumulators::tag::rolling_mean > > _floating_base_velocity_in_world;
+
+
     void updateIMUCallBack(const sensor_msgs::Imu &msg);
     void updateIdynCallBack(const sensor_msgs::JointState &msg);
     void updateNewWorld(const geometry_msgs::TransformStamped &msg);
@@ -123,6 +142,9 @@ private:
     void updateFromFTSensor(const geometry_msgs::WrenchStamped &msg);
     void fillKinematicChainConfig(const kinematic_chain& kc,
                                   std::map<std::string, double>& joint_names_values);
+    void fillKinematicChainConfig(const kinematic_chain& kc,
+                                  std::map<std::string, double>& joint_names_values,
+                                  std::map<std::string, double>& joint_names_vel);
 };
 
 #endif
