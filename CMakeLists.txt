@@ -24,9 +24,7 @@ find_package(YARP REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(TinyXML REQUIRED)
 find_package(iDynTree REQUIRED)
-find_package(GYM REQUIRED)
 find_package(idynutils REQUIRED)
-find_package(paramHelp REQUIRED)
 FIND_PACKAGE(PCL 1.2 REQUIRED)
 
 set(ROS_LIB_FOLDER $ENV{ROS_LIB_FOLDER} CACHE STRING "ros lib folder")
@@ -115,9 +113,7 @@ include_directories(include ${drc_shared_INCLUDE_DIRS} ${YARP_INCLUDE_DIRS}
 ${Eigen_INCLUDE_DIRS}
 ${TinyXML_INCLUDE_DIRS}
 ${iDynTree_INCLUDE_DIRS}
-${GYM_INCLUDE_DIRS}
 ${idynutils_INCLUDE_DIRS}
-${paramHelp_INCLUDE_DIRS}
 ${PCL_INCLUDE_DIRS})
 
 ## Declare a cpp library
@@ -139,18 +135,14 @@ ${catkin_LIBRARIES}
 ${kdl_codyco_LIBRARIES}
 ${TinyXML_LIBRARIES}
 ${iDynTree_LIBRARIES}
-${GYM_LIBRARIES}
 ${idynutils_LIBRARIES}
-${paramHelp_LIBRARIES}
 ${PCL_LIBRARIES})
 
 target_link_libraries(robot_state_publisher_ext_node idyn_ros_interface ${drc_shared_LIBRARIES} ${YARP_LIBRARIES} 
 #icubmod 
 #${ICUB_LIBRARIES} 
 ${catkin_LIBRARIES}
-${GYM_LIBRARIES}
 ${idynutils_LIBRARIES}
-${paramHelp_LIBRARIES}
 ${PCL_LIBRARIES})
 
 #############
